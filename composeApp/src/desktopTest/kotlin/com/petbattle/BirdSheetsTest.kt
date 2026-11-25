@@ -38,12 +38,33 @@ class BirdSheetsTest {
                 BirdSheet.FLY_ROW, BirdSheet.IDLE_ROW, BirdSheet.HOP_ROW,
                 BirdSheet.LOOK_UP_ROW, BirdSheet.REST_ROW, BirdSheet.SLEEP_ROW,
             )
-            val columns = rows.maxOf { BirdSheet.frames(it, species) }
+            val columns = BirdSheet.columns(species)
+            assertEquals(rows.maxOf { BirdSheet.frames(it, species) }, columns, "$species: columnas")
             assertEquals(columns * BirdSheet.FRAME_SIZE, sheet.width, "$species: ancho de la hoja")
-            for (row in rows) for (col in 0 until BirdSheet.frames(row, species)) {
-                assertTrue(sheet.hasDrawing(col, row), "$species: frame $col de la fila $row vacío")
+            val animations = rows + listOf(BirdSheet.TAKEOFF, BirdSheet.LANDING)
+            var lastRow = BirdSheet.ROWS - 1
+            for (animation in animations) for (frame in 0 until BirdSheet.frames(animation, species)) {
+                val (col, row) = BirdSheet.cell(animation, frame, species)
+                lastRow = maxOf(lastRow, row)
+                assertTrue(sheet.hasDrawing(col, row), "$species: frame $frame de la animación $animation vacío")
             }
+            assertEquals((lastRow + 1) * BirdSheet.FRAME_SIZE, sheet.height, "$species: alto de la hoja")
         }
+    }
+
+    @Test
+    fun jayTakeOffAndLandingWrapAcrossRows() {
+        val jay = PetSpecies.blueJay
+        assertTrue(BirdSheet.hasTransitions(jay))
+        assertTrue(!BirdSheet.hasTransitions(PetSpecies.cardinal))
+        // 31 frames en 16 columnas: el despegue ocupa las filas 6-7 y el aterrizaje las 8-9.
+        assertEquals(15 to 6, BirdSheet.cell(BirdSheet.TAKEOFF, 15, jay))
+        assertEquals(0 to 7, BirdSheet.cell(BirdSheet.TAKEOFF, 16, jay))
+        assertEquals(0 to 8, BirdSheet.cell(BirdSheet.LANDING, 0, jay))
+        assertEquals(14 to 9, BirdSheet.cell(BirdSheet.LANDING, 30, jay))
+        // Deja el suelo a la mitad del despegue, aproximadamente.
+        val liftoff = BirdSheet.liftoffSeconds(jay)
+        assertTrue(liftoff > 0.5 && liftoff < BirdSheet.cycleSeconds(BirdSheet.TAKEOFF, jay))
     }
 
     @Test

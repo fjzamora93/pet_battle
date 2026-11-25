@@ -92,29 +92,71 @@ def build_jay(reference, out):
 ANIMATION_FILES = ["vuelo", "reposo", "andar", "mirar_arriba", "descansar", "dormir"]
 SOURCE_COLUMNS = 4
 
+# Transiciones opcionales (despegar y aterrizar), detrás de las 6 filas normales. Son largas:
+# cada una ocupa las filas que haga falta, seguidas (el frame i va en la fila base + i // columnas).
+# Para cada una, el primer frame en el aire (despegue) o el primero con las patas en el suelo
+# (aterrizaje), contados en el dibujo. El del despegue es BirdSheet.LIFTOFF_FRAME en el juego
+# (desde ese frame el pájaro ya se desplaza): si cambia aquí, hay que cambiarlo allí.
+TRANSITIONS = [("despegue", 16), ("aterrizaje", 4)]
+
+
+def load_frames(path):
+    """Frames de una imagen transparente en rejilla de SOURCE_COLUMNS columnas, en orden de
+    lectura y volteados para mirar a la izquierda."""
+    img = Image.open(path).convert("RGBA")
+    cell = img.width // SOURCE_COLUMNS
+    frames = []
+    for r in range(img.height // cell):
+        for c in range(SOURCE_COLUMNS):
+            frame = img.crop((c * cell, r * cell, (c + 1) * cell, (r + 1) * cell))
+            if frame.getbbox():
+                frames.append(frame.transpose(Image.FLIP_LEFT_RIGHT))
+    return frames
+
+
+def body_center(im):
+    """Centro del cuerpo: los píxeles marrón rosado (pecho, lomo, cabeza), sin alas ni cola."""
+    a = np.asarray(im).astype(int)
+    r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+    ys, xs = np.nonzero((al > 128) & (r > b + 25) & (r > g))
+    return np.array([xs.mean(), ys.mean()])
+
 
 def build_from_frames(folder, out):
-    """Hoja con todos los frames de cada animación, sin recolocarlos uno a uno: se conserva la
-    posición de cada pájaro dentro de su casilla (los saltos al andar, la cabeza al mirar
-    arriba) y se mueve la animación entera de una vez, para que el movimiento sea fluido."""
-    rows = []
-    for name in ANIMATION_FILES:
-        img = Image.open(os.path.join(folder, f"{name}.png")).convert("RGBA")
-        cell = img.width // SOURCE_COLUMNS
-        frames = []
-        for r in range(img.height // cell):
-            for c in range(SOURCE_COLUMNS):
-                frame = img.crop((c * cell, r * cell, (c + 1) * cell, (r + 1) * cell))
-                if frame.getbbox():
-                    frames.append(frame.transpose(Image.FLIP_LEFT_RIGHT))
-        rows.append(frames)
+    """Hoja con todos los frames de cada animación.
+
+    En las animaciones normales no se recoloca cada frame: se conserva la posición de cada
+    pájaro dentro de su casilla (los saltos al andar, la cabeza al mirar arriba) y se mueve la
+    animación entera de una vez, para que el movimiento sea fluido.
+
+    En las transiciones (si están en la carpeta), los frames con las patas en el suelo se
+    colocan uno a uno con las patas en la línea del suelo (en el dibujo esa línea se desplaza
+    entre frames), y los del aire se van llevando hasta la postura de vuelo de la fila 0: el
+    despegue acaba y el aterrizaje empieza exactamente donde vuela, sin saltos."""
+    rows = [load_frames(os.path.join(folder, f"{name}.png")) for name in ANIMATION_FILES]
+    transitions = [(load_frames(os.path.join(folder, f"{name}.png")), edge)
+                   for name, edge in TRANSITIONS if os.path.exists(os.path.join(folder, f"{name}.png"))]
     # Una sola escala para todos: el pájaro de pie mide como los demás de la colección.
     scale = STANDING_WIDTH / float(np.median([f.getbbox()[2] - f.getbbox()[0] for f in rows[IDLE]]))
     columns = max(len(r) for r in rows)
-    sheet = Image.new("RGBA", (FRAME * columns, FRAME * ROWS), (0, 0, 0, 0))
-    for r, frames in enumerate(rows):
+    sheet_rows = ROWS + sum(-(-len(t) // columns) for t, _ in transitions)
+    sheet = Image.new("RGBA", (FRAME * columns, FRAME * sheet_rows), (0, 0, 0, 0))
+
+    def resized(frames):
         size = round(frames[0].width * scale)
-        frames = [f.resize((size, size), Image.LANCZOS) for f in frames]
+        return [f.resize((size, size), Image.LANCZOS) for f in frames]
+
+    def put(f, index, base_row, offset):
+        b = f.getbbox()
+        # Nunca fuera de su casilla (se comería la de al lado).
+        dx = min(max(offset[0], -b[0]), FRAME - b[2])
+        dy = min(max(offset[1], -b[1]), FRAME - b[3])
+        r, c = base_row + index // columns, index % columns
+        sheet.alpha_composite(f, (c * FRAME + round(dx), r * FRAME + round(dy)))
+
+    fly_body = None
+    for r, frames in enumerate(rows):
+        frames = resized(frames)
         boxes = [f.getbbox() for f in frames]
         union = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
         if r == FLY:
@@ -128,8 +170,37 @@ def build_from_frames(folder, out):
             dy = FEET_Y - union[3]
         dx = min(max(dx, -union[0]), FRAME - union[2])
         dy = min(max(dy, -union[1]), FRAME - union[3])
+        if r == FLY:
+            fly_body = np.median([body_center(f) for f in frames], axis=0) + [dx, dy]
         for c, f in enumerate(frames):
-            sheet.alpha_composite(f, (c * FRAME + round(dx), r * FRAME + round(dy)))
+            put(f, c, r, (dx, dy))
+
+    base_row = ROWS
+    for (frames, edge), (name, _) in zip(transitions, TRANSITIONS):
+        frames = resized(frames)
+        n = len(frames)
+        landing = name == "aterrizaje"
+        on_ground = [(i >= edge) if landing else (i < edge) for i in range(n)]
+        # En el suelo: patas en su sitio, cada frame por separado.
+        ground = {}
+        for i, f in enumerate(frames):
+            if on_ground[i]:
+                b = f.getbbox()
+                ground[i] = np.array([FEET_X - (feet_x(f.crop(b)) + b[0]), FEET_Y - b[3]])
+        # En el aire: de la colocación del último frame en el suelo a la de vuelo.
+        last_ground = ground[edge] if landing else ground[edge - 1]
+        air = [i for i in range(n) if not on_ground[i]]
+        for i in air:
+            fly_offset = fly_body - body_center(frames[i])
+            # 0 junto al suelo, 1 en el frame más lejano de él (el primero o el último).
+            t = (edge - i) / edge if landing else (i - (edge - 1)) / (n - edge)
+            ground[i] = last_ground * (1 - t) + fly_offset * t
+        for i, f in enumerate(frames):
+            put(f, i, base_row, ground[i])
+        print(f"  {name}: {n} frames, filas {base_row}-{base_row + (n - 1) // columns}, "
+              f"{'en el suelo desde' if landing else 'despega en'} el frame {edge}")
+        base_row += -(-n // columns)
+
     sheet.save(out, optimize=True)
     print(f"{out}: {sheet.width}x{sheet.height}, frames por fila {[len(r) for r in rows]}, escala {scale:.3f}")
 

@@ -287,6 +287,18 @@ private class Actor(var x: Double, var depth: Double, val phase: Double) {
     var depthSpeed = 0.0
     var moving = false
     var lift = 0.0 // 0 = posada, 1 = altura de vuelo
+
+    /** Su especie tiene animaciones de despegar y aterrizar (BirdSheet.hasTransitions). */
+    var transitions = false
+
+    /** Segundos despegando (<0 = no): hasta dejar el suelo no se desplaza. */
+    var takeoffT = -1.0
+
+    /** Segundos aterrizando (<0 = no): ya en su sitio, termina de posarse. */
+    var landT = -1.0
+
+    /** Despegando o aterrizando: no hace otra cosa hasta terminar. */
+    val inTransition get() = takeoffT >= 0 || landT >= 0
     var facingRight = Random.nextBoolean()
     var restFor = 1.0 + Random.nextDouble() * 4
     var nextTurnIn = 2.0 + Random.nextDouble() * 4
@@ -484,7 +496,21 @@ private class BiomeSceneState {
             a.sleepT += ((if (asleep) 1.0 else 0.0) - a.sleepT) * ease
             val targetSat = 0.3 + 0.7 * pet.needs.wellbeing.coerceIn(0.0, 1.0)
             a.saturation += (targetSat - a.saturation) * ease
-            a.lift += ((if (a.moving) 1.0 else 0.0) - a.lift) * (dt * 5).coerceIn(0.0, 1.0)
+            a.transitions = BirdSheet.hasTransitions(pet.species)
+            if (a.takeoffT >= 0) {
+                a.takeoffT += dt
+                // Deja el suelo: empieza a desplazarse mientras termina la animación.
+                if (!a.moving && a.takeoffT >= BirdSheet.liftoffSeconds(pet.species)) a.moving = true
+                if (a.takeoffT >= BirdSheet.cycleSeconds(BirdSheet.TAKEOFF, pet.species)) a.takeoffT = -1.0
+            }
+            if (a.landT >= 0) {
+                a.landT += dt
+                if (a.landT >= BirdSheet.cycleSeconds(BirdSheet.LANDING, pet.species)) a.landT = -1.0
+            }
+            // Con aterrizaje propio baja al ras del suelo al final del vuelo: la animación de
+            // aterrizar empieza justo en la postura de vuelo y lo posa.
+            val descending = a.transitions && a.moving && timeToArrive(a) <= DESCENT_LEAD
+            a.lift += ((if (a.moving && !descending) 1.0 else 0.0) - a.lift) * (dt * 5).coerceIn(0.0, 1.0)
 
             // La comida a la que iba ya no está (se la comió otra o caducó).
             if (a.foodId != null && a.foodId !in foodIds) {
@@ -492,7 +518,8 @@ private class BiomeSceneState {
                 a.eatT = -1.0
             }
             if (a.eatT >= 0) {
-                a.eatT += dt
+                // Empieza a picotear cuando termina de posarse.
+                if (a.landT < 0) a.eatT += dt
                 if (a.eatT >= EAT_DURATION) {
                     a.foodId?.let { eaten += it to pet.id }
                     a.foodId = null
@@ -501,6 +528,7 @@ private class BiomeSceneState {
                 }
             } else if (pet.isEgg) a.moving = false // los huevos no se mueven
             else if (a.moving) fly(a, dt)
+            else if (a.inTransition) Unit // agachándose para despegar o terminando de posarse
             else if (!asleep && a.reactT < 0) {
                 a.restFor -= dt
                 a.nextTurnIn -= dt
@@ -546,8 +574,38 @@ private class BiomeSceneState {
         a.targetDepth = food.depth
         val flightTime = max(abs(a.target - a.x) / SPEED, 0.5)
         a.depthSpeed = abs(a.targetDepth - a.depth) / flightTime
-        a.moving = true
+        startFlight(a)
         a.facingRight = a.target > a.x
+    }
+
+    /**
+     * Echa a volar hacia el destino ya elegido. Si su especie tiene despegue propio y está
+     * posada, primero lo anima (y no se desplaza hasta dejar el suelo); si ya volaba o estaba
+     * despegando, solo cambia de rumbo.
+     */
+    private fun startFlight(a: Actor) {
+        when {
+            a.moving || a.takeoffT >= 0 -> Unit
+            a.transitions -> {
+                a.landT = -1.0
+                a.takeoffT = 0.0
+            }
+            else -> a.moving = true
+        }
+    }
+
+    /** Se posa donde está; si su especie tiene aterrizaje propio, lo anima. */
+    private fun land(a: Actor) {
+        a.moving = false
+        a.takeoffT = -1.0
+        if (a.transitions) a.landT = 0.0
+    }
+
+    /** Segundos que le faltan para llegar a su destino (en horizontal y en profundidad). */
+    private fun timeToArrive(a: Actor): Double {
+        val horizontal = abs(a.target - a.x) / SPEED
+        val depth = if (a.depthSpeed > 0) abs(a.targetDepth - a.depth) / a.depthSpeed else 0.0
+        return max(horizontal, depth)
     }
 
     /** Elige un destino al azar (suficientemente lejos) y despega. */
@@ -559,7 +617,7 @@ private class BiomeSceneState {
         a.targetDepth = Random.nextDouble()
         val flightTime = max(abs(target - a.x) / SPEED, 0.5)
         a.depthSpeed = abs(a.targetDepth - a.depth) / flightTime
-        a.moving = true
+        startFlight(a)
         a.facingRight = target > a.x
     }
 
@@ -578,7 +636,7 @@ private class BiomeSceneState {
         if (a.depth != a.targetDepth) return
         // Si venía a por comida, se posa a su lado aunque haya otra cerca, y empieza a picotear.
         if (a.foodId != null) {
-            a.moving = false
+            land(a)
             a.facingRight = a.foodX > a.x
             a.eatT = 0.0
             return
@@ -591,7 +649,7 @@ private class BiomeSceneState {
                 return
             }
         }
-        a.moving = false
+        land(a)
         a.restFor = 3.0 + Random.nextDouble() * 5
     }
 
@@ -648,6 +706,9 @@ private class BiomeSceneState {
         const val HEART_LIFE = 0.9
         const val SPLASH_DURATION = 0.7
         const val EAT_DURATION = 1.6 // segundos picoteando antes de acabarse la comida
+
+        /** Segundos antes de llegar en que baja al ras del suelo (especies con aterrizaje). */
+        const val DESCENT_LEAD = 0.45
     }
 }
 
@@ -705,7 +766,10 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
     val asleep = state.isResting(pet)
     val t = state.time + a.phase
     val species = pet.species
-    val row = when {
+    val animation = when {
+        // Despegando o aterrizando: su animación de transición, de principio a fin.
+        a.takeoffT >= 0 -> BirdSheet.TAKEOFF
+        a.landT >= 0 -> BirdSheet.LANDING
         a.lift > 0.05 -> BirdSheet.FLY_ROW
         // Al tocarla, mira arriba (hacia quien la mima).
         a.reactT >= 0 -> BirdSheet.LOOK_UP_ROW
@@ -714,15 +778,17 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
         asleep -> BirdSheet.REST_ROW
         else -> BirdSheet.IDLE_ROW
     }
-    val col = if (row == BirdSheet.LOOK_UP_ROW) {
-        BirdSheet.onceFrame(row, species, a.reactT)
-    } else {
-        BirdSheet.loopFrame(row, species, t)
+    val frame = when (animation) {
+        BirdSheet.TAKEOFF -> BirdSheet.onceFrame(animation, species, a.takeoffT)
+        BirdSheet.LANDING -> BirdSheet.onceFrame(animation, species, a.landT)
+        BirdSheet.LOOK_UP_ROW -> BirdSheet.onceFrame(animation, species, a.reactT)
+        else -> BirdSheet.loopFrame(animation, species, t)
     }
+    val (col, row) = BirdSheet.cell(animation, frame, species)
 
-    // Respiración idle: más lenta y profunda mientras duerme.
+    // Respiración idle: más lenta y profunda mientras duerme (no mientras despega o se posa).
     val speed = 2.2 - a.sleepT * 1.2
-    val amount = (0.02 + a.sleepT * 0.02) * (1 - a.lift)
+    val amount = (0.02 + a.sleepT * 0.02) * (1 - a.lift) * (if (a.inTransition) 0.0 else 1.0)
     val b = (sin(t * speed) * amount).toFloat()
     val (bx, by) = a.bounceScale()
     // Desaturado si está mal (el filtro del momento del día solo cae sobre el cielo).
@@ -731,7 +797,7 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
     val dirtiness = ((60 - pet.needs.hygiene) / 60).coerceIn(0.0, 1.0)
 
     // Comiendo: picotea inclinándose hacia delante (hacia donde mira) a golpes.
-    val peck = if (a.eatT >= 0) (max(0.0, sin(a.eatT * 2 * kotlin.math.PI * 2.2)) * 28).toFloat() else 0f
+    val peck = if (a.eatT >= 0 && a.landT < 0) (max(0.0, sin(a.eatT * 2 * kotlin.math.PI * 2.2)) * 28).toFloat() else 0f
     rotate(if (a.facingRight) peck else -peck, pivot) {
     scale(bx * (1 + b), by * (1 - b), pivot) {
         val bounds = Rect(left, topY, left + side, topY + side)

@@ -28,12 +28,30 @@ es más ancha (tantas columnas como frames tenga su animación más larga) y sus
 (`BirdSheet.cycleSeconds`), así que con más frames cada uno dura menos. El test
 `BirdSheetsTest` comprueba que cada hoja tiene dibujo en todos los frames que declara el código.
 
+### Despegue y aterrizaje (opcionales)
+
+Detrás de las 6 filas, una especie puede tener **despegue** (`BirdSheet.TAKEOFF`) y
+**aterrizaje** (`BirdSheet.LANDING`). Son largas: cada una ocupa varias filas seguidas (el frame
+*i* va en la fila base + *i* / columnas, ver `BirdSheet.cell`). En el juego:
+
+- **Despegue**: se agacha y abre las alas sin moverse; desde el frame `LIFTOFF_FRAME` (cuando
+  deja el suelo) ya se desplaza, y al acabar sigue con el aleteo normal.
+- **Aterrizaje**: en el último tramo del vuelo baja al ras del suelo; al llegar se posa con la
+  animación y no hace nada más (picotear, volver a volar) hasta terminarla.
+
+Al montar la hoja, los frames con las patas en el suelo se colocan uno a uno con las patas en la
+línea del suelo, y los del aire se llevan poco a poco hasta la postura de vuelo de la fila 0: el
+despegue empieza y el aterrizaje acaba en la postura de reposo, y los dos enlazan con el vuelo
+sin saltos.
+
 ## Estado del arte
 
-- **Arrendajo** (`pet_blue_jay.png`): estilo nuevo, con hoja ampliada de **16 columnas** (4096 ×
-  1536): 12 frames de vuelo y 16 en cada una de las demás animaciones. Se monta con el modo
-  `frames` a partir de `tools/bird_sprites/arrendajo/` (una imagen transparente por animación).
-  Su reacción al tocarlo (mirar arriba) dura 1,2 s, porque sube la cabeza y la vuelve a bajar.
+- **Arrendajo** (`pet_blue_jay.png`): estilo nuevo, con hoja ampliada de **16 columnas × 10
+  filas** (4096 × 2560): 12 frames de vuelo, 16 en cada una de las demás animaciones y 31 de
+  despegue (filas 6-7) y de aterrizaje (filas 8-9). Se monta con el modo `frames` a partir de
+  `tools/bird_sprites/arrendajo/` (una imagen transparente por animación, más `despegue.png` y
+  `aterrizaje.png`). Su reacción al tocarlo (mirar arriba) dura 1,2 s, porque sube la cabeza y la
+  vuelve a bajar.
 - **Resto de especies**: estilo antiguo pasado a esta rejilla; los frames que no tenían se han
   rellenado con copias del más parecido (ver `OLD_TO_NEW` en `build_grid.py`). Hay que
   sustituirlos cuando exista su arte nuevo.

@@ -51,15 +51,53 @@ object BirdSheet {
     const val REST_ROW = 4 // descansar despierta, de noche (4)
     const val SLEEP_ROW = 5 // dormir (4)
 
-    /** Número de frames de la animación de la fila [row] de [species]. */
+    /** Filas normales (una por animación); detrás pueden ir las transiciones. */
+    const val ROWS = 6
+
+    /**
+     * Transiciones entre estar posado y volar (solo algunas especies, ver [hasTransitions]).
+     * Son animaciones largas: cada una ocupa varias filas seguidas detrás de las normales (ver
+     * [cell]). Se identifican como las filas normales, con estos números.
+     */
+    const val TAKEOFF = 6 // despegar: de pie -> agacharse, abrir alas -> en el aire
+    const val LANDING = 7 // aterrizar: en el aire -> posar las patas -> de pie
+
+    /** Frame del despegue en que el pájaro deja el suelo: desde ahí ya se desplaza. */
+    const val LIFTOFF_FRAME = 16
+
+    /** Si [species] tiene despegue y aterrizaje propios (si no, despega y se posa sin más). */
+    fun hasTransitions(species: PetSpecies) = species == PetSpecies.blueJay
+
+    /** Columnas de la hoja de [species]. */
+    fun columns(species: PetSpecies) = if (species == PetSpecies.blueJay) 16 else COLUMNS
+
+    /** Número de frames de la animación [row] (fila normal o transición) de [species]. */
     fun frames(row: Int, species: PetSpecies): Int = when (species) {
-        // Hoja ampliada (tools/bird_sprites/arrendajo): 12 frames de vuelo y 16 en el resto.
-        PetSpecies.blueJay -> if (row == FLY_ROW) 12 else 16
+        // Hoja ampliada (tools/bird_sprites/arrendajo): 12 frames de vuelo, 16 en las demás
+        // filas y 31 en cada transición.
+        PetSpecies.blueJay -> when (row) {
+            FLY_ROW -> 12
+            TAKEOFF, LANDING -> 31
+            else -> 16
+        }
         else -> when (row) {
             FLY_ROW -> 8
             IDLE_ROW, HOP_ROW -> 6
+            TAKEOFF, LANDING -> 0
             else -> 4
         }
+    }
+
+    /**
+     * Casilla (columna, fila) de la hoja del frame [frame] de la animación [row]: en las filas
+     * normales, (frame, row); las transiciones siguen en la fila de abajo al llegar al final.
+     */
+    fun cell(row: Int, frame: Int, species: PetSpecies): Pair<Int, Int> {
+        if (row < ROWS) return frame to row
+        val cols = columns(species)
+        var base = ROWS
+        for (r in TAKEOFF until row) base += (frames(r, species) + cols - 1) / cols
+        return frame % cols to base + frame / cols
     }
 
     /**
@@ -73,8 +111,13 @@ object BirdSheet {
         IDLE_ROW, HOP_ROW -> 1.8
         LOOK_UP_ROW -> if (species == PetSpecies.blueJay) 1.2 else 0.4
         REST_ROW -> 2.8
+        TAKEOFF, LANDING -> 1.2
         else -> 3.6 // dormir
     }
+
+    /** Segundos desde que empieza a despegar hasta que deja el suelo ([LIFTOFF_FRAME]). */
+    fun liftoffSeconds(species: PetSpecies) =
+        cycleSeconds(TAKEOFF, species) * LIFTOFF_FRAME / frames(TAKEOFF, species).coerceAtLeast(1)
 
     /** Frame de la animación en bucle de la fila [row] de [species] en el instante [time] (s). */
     fun loopFrame(row: Int, species: PetSpecies, time: Double): Int {
