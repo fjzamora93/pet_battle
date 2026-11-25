@@ -67,7 +67,7 @@ class PetNeedsRulesTest {
         assertEquals(asleep, PetNeedsRules.feed(asleep))
         assertEquals(asleep, PetNeedsRules.clean(asleep))
         assertEquals(asleep, PetNeedsRules.cuddle(asleep))
-        assertEquals(52.0, PetNeedsRules.cuddle(needs(stats = 50.0)).happiness)
+        assertEquals(60.0, PetNeedsRules.cuddle(needs(stats = 50.0)).happiness)
         assertEquals(79.0, PetNeedsRules.spendEnergy(needs(), 1.0).energy)
         assertEquals(0.0, PetNeedsRules.spendEnergy(needs(stats = 0.5), 1.0).energy)
     }

@@ -198,13 +198,13 @@ class GameStateAndSkillsTest {
         // Daño: hambre, plumaje (100) y pico y garras.
         val hungry = PetCombatStatsRules.statsFor(pet { copy(satiety = 40.0, beakAndClaws = 60.0) }, 100.0)
         assertEquals(2.4 * (40 + 100 + 60) / 300, hungry.damage, 1e-9)
-        // Velocidad: descanso, digestión y clima (100).
+        // Velocidad: descanso resta 0,5 % por punto que falta; digestión y clima, 0,33 %.
         val slow = PetCombatStatsRules.statsFor(pet { copy(energy = 50.0, digestion = 20.0) }, 100.0)
-        assertEquals(full.maxAttacksPerSecond * (50 + 20 + 100) / 300, slow.attacksPerSecond, 1e-9)
-        // Sin energía está agotada aunque digestión y clima estén bien.
+        assertEquals(full.maxAttacksPerSecond * (1 - 0.5 * 0.5 - 0.8 / 3), slow.attacksPerSecond, 1e-9)
+        // Sin energía no hay corte: ataca a la mitad de velocidad.
         val spent = PetCombatStatsRules.statsFor(pet { copy(energy = 0.0) }, 100.0)
-        assertTrue(spent.exhausted)
-        assertNull(spent.fireInterval)
+        assertEquals(full.maxAttacksPerSecond * 0.5, spent.attacksPerSecond, 1e-9)
+        assertFalse(spent.exhausted)
         // Confianza: diversión, social e higiene; es la probabilidad de acertar.
         val lonely = PetCombatStatsRules.statsFor(pet { copy(happiness = 70.0, hygiene = 80.0) }, socialization = 0.0)
         assertEquals((70.0 + 0 + 80) / 3, lonely.confidence, 1e-9)

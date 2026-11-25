@@ -18,6 +18,16 @@ object PetCombatBalance {
 
     const val MAX_CONFIDENCE = 100.0
 
+    /**
+     * Velocidad que quita el descanso a 0 (fracción del total): 0,5 = la mitad, es decir,
+     * un 0,5 % por cada punto que falta. No hay corte: sin descanso sigue atacando.
+     */
+    const val ENERGY_SPEED_PENALTY = 0.5
+
+    /** Velocidad que quitan la digestión y el clima a 0 (cada uno): un tercio del total. */
+    const val DIGESTION_SPEED_PENALTY = 1.0 / 3.0
+    const val CLIMATE_SPEED_PENALTY = 1.0 / 3.0
+
     /** Alcance de referencia (px de mapa); cada especie tiene el suyo (ver [range]). */
     const val DEFAULT_RANGE = 300.0
 
@@ -54,8 +64,10 @@ object PetCombatBalance {
  * | velocidad de ataque | descanso (energía), digestión, clima      |
  * | confianza (acierto) | diversión, social, higiene                |
  *
- * Además, sin energía está agotada y no ataca (si no, podría disparar sin fin). El rango
- * (alcance) no depende de las necesidades: es fijo por especie (PetCombatBalance.range).
+ * La velocidad no usa la media: cada necesidad resta su propia penalización por punto que
+ * falta (descanso 0,5 %, digestión y clima 0,33 %; ver PetCombatBalance). Sin descanso no
+ * hay corte: ataca a la mitad. El rango (alcance) no depende de las necesidades: es fijo
+ * por especie (PetCombatBalance.range).
  */
 object PetCombatStatsRules {
     /** Daño total de una mascota de nivel [level] (con todas sus necesidades al máximo). */
@@ -72,7 +84,7 @@ object PetCombatStatsRules {
     fun statsFor(pet: PetEntity, socialization: Double): PetCombatStats {
         val n = pet.needs
         val damageFactor = mean(n.satiety, n.plumage, n.beakAndClaws)
-        val speedFactor = if (n.energy <= 0.0) 0.0 else mean(n.energy, n.digestion, PetDerivedNeeds.climate(pet))
+        val speedFactor = speedFactor(n.energy, n.digestion, PetDerivedNeeds.climate(pet))
         val maxDamage = maxDamage(pet.progression.level)
         return PetCombatStats(
             damage = maxDamage * damageFactor,
@@ -87,6 +99,18 @@ object PetCombatStatsRules {
     /** Confianza (0..100): el equilibrio entre diversión, social e higiene. */
     fun confidence(pet: PetEntity, socialization: Double) =
         PetCombatBalance.MAX_CONFIDENCE * mean(pet.needs.happiness, socialization, pet.needs.hygiene)
+
+    /**
+     * Fracción (0..1) de la velocidad total que rinde ahora: el total menos lo que resta cada
+     * necesidad según lo que le falta (penalizaciones de PetCombatBalance).
+     */
+    fun speedFactor(energy: Double, digestion: Double, climate: Double): Double {
+        fun missing(need: Double) = 1.0 - (need / PetNeedsBalance.MAX_STAT).coerceIn(0.0, 1.0)
+        val penalty = PetCombatBalance.ENERGY_SPEED_PENALTY * missing(energy) +
+            PetCombatBalance.DIGESTION_SPEED_PENALTY * missing(digestion) +
+            PetCombatBalance.CLIMATE_SPEED_PENALTY * missing(climate)
+        return (1.0 - penalty).coerceIn(0.0, 1.0)
+    }
 
     /** Media de necesidades como fracción 0..1. */
     private fun mean(vararg needs: Double) =

@@ -3,7 +3,7 @@ package com.petbattle.shared_features.pet_status.domain
 /**
  * Valores de ajuste de las necesidades de la mascota (cómo bajan y suben). Cómo afectan al
  * combate está en PetCombatStatsRules. Solo datos, sin lógica: modifícalos con libertad.
- * Las reglas completas, explicadas, están en docs/reglas-de-combate.md.
+ * Las reglas completas, explicadas, están en docs/reglas-de-cuidado.md.
  */
 object PetNeedsBalance {
     const val MIN_STAT = 0.0
@@ -48,7 +48,7 @@ object PetNeedsBalance {
     // --- Interacción directa (diversión) ------------------------------------------------
 
     /** Diversión ganada por cada toque a la mascota. */
-    const val CUDDLE_HAPPINESS = 2.0
+    const val CUDDLE_HAPPINESS = 10.0
 
     // --- Limpieza (salud) --------------------------------------------------------------
     const val CLEAN_HYGIENE = 45.0

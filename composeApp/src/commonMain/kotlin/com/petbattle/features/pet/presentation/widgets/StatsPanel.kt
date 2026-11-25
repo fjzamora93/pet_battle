@@ -192,12 +192,12 @@ private fun NeedsInfo() {
 /** Cómo se calcula cada stat de combate. */
 @Composable
 private fun CombatInfo() {
-    Text("Daño, velocidad y confianza: actual = total × la media de sus tres necesidades.", style = GameUi.text(11.sp))
+    Text("Daño y confianza: actual = total × la media de sus tres necesidades (−0,33 % por punto que falta).", style = GameUi.text(11.sp))
     InfoLine(GameIcon.Damage, "Daño", "total ${PetCombatBalance.DAMAGE_PER_LEVEL.format(1)} × nivel (${PetCombatBalance.LEVEL_ZERO_DAMAGE.format(0)} en nivel 0) · hambre, plumaje, pico y garras")
-    InfoLine(GameIcon.Speed, "Velocidad", "total ${PetCombatStatsRules.maxAttacksPerSecond.format(2)} ataques/s · descanso, digestión, clima")
+    InfoLine(GameIcon.Speed, "Velocidad", "total ${PetCombatStatsRules.maxAttacksPerSecond.format(2)} ataques/s · por punto que falta: descanso −0,5 %, digestión y clima −0,33 %")
     InfoLine(GameIcon.Confidence, "Confianza", "total ${PetCombatBalance.MAX_CONFIDENCE.format(0)} % de acierto · diversión, social, higiene")
     InfoLine(GameIcon.Range, "Rango", "alcance fijo de su especie: cuanto más grande el pájaro, más lejos llega")
-    Text("Sin descanso está agotado y no ataca.", style = GameUi.text(11.sp, Color(0xFFE8DCC8)), modifier = Modifier.padding(top = 4.dp))
+    Text("Sin descanso ataca a la mitad de velocidad.", style = GameUi.text(11.sp, Color(0xFFE8DCC8)), modifier = Modifier.padding(top = 4.dp))
 }
 
 @Composable

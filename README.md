@@ -51,7 +51,7 @@ La partida se guarda sola: en Android en SharedPreferences y en escritorio en
   eclosiona a las 8 h en un polluelo que crecerá a la especie de sus padres.
 - **Rareza**: de 1 a 5 estrellas (común, poco común, raro, épico, legendario). Los huevos
   comprados salen con 1 (90 %) o 2 (10 %); las crías heredan de sus padres (ver
-  `docs/reglas-de-combate.md`).
+  `docs/reglas-de-cuidado.md`).
 - **Cuidados**: aliméntala (eligiendo la comida: los adultos rechazan lo que no es de su
   dieta), límpiala, mándala a dormir y tócala para subir su diversión.
 - **Defender**: coloca en la hierba tus mascotas adultas, de cualquier bioma (los polluelos no luchan). Los enemigos
@@ -61,8 +61,9 @@ La partida se guarda sola: en Android en SharedPreferences y en escritorio en
 - **Necesidades y stats de combate**: cada stat de combate rinde su total (según
   el nivel) por la media de tres necesidades: daño ← hambre, plumaje, pico y
   garras; velocidad ← descanso, digestión, clima; confianza (% de acierto) ←
-  diversión, social, higiene. Sin descanso no ataca. Detalle completo en
-  `docs/reglas-de-combate.md`.
+  diversión, social, higiene. El descanso pesa más: sin descanso ataca a la mitad
+  de velocidad. Detalle completo en
+  `docs/reglas-de-combate.md` (combate) y `docs/reglas-de-cuidado.md` (cuidados).
 - **Habilidades por elemento**: fuego quema (120% del daño en 3 s), agua
   ralentiza, aire empuja hacia atrás, tierra golpea normal.
 
