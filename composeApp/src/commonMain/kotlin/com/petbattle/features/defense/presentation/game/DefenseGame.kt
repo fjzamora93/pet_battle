@@ -28,8 +28,13 @@ import kotlin.random.Random
 data class DefenseHudState(
     /** Mascotas ya en el mapa (cada mascota criada se puede colocar una vez). */
     val placedIds: Set<String> = emptySet(),
-    /** Mascota que colocará el próximo toque en el mapa; null si ya están todas colocadas. */
+    /** Mascota de la reserva que colocará el próximo toque en el mapa; null = ninguna elegida. */
     val selectedId: String? = null,
+    /**
+     * Energía con la que entró al combate cada mascota que ya ha estado en el mapa esta
+     * partida: es el tope hasta el que se recupera descansando en la reserva.
+     */
+    val entryEnergy: Map<String, Double> = emptyMap(),
     /** Mascota ya colocada que se está recolocando (se dibuja semitransparente). */
     val editingId: String? = null,
     /** false = fase de preparación (colocar y mover); true = combate en marcha. */
@@ -46,11 +51,14 @@ data class DefenseHudState(
 /**
  * Simulación de tower defense. Las coordenadas del mundo son píxeles del mapa.
  *
- * Flujo: primero hay una fase de preparación. El jugador elige una de sus mascotas y toca
- * un punto de hierba para colocarla (cada mascota se coloca una vez); tocando una ya
- * colocada la recoge para recolocarla con el siguiente toque ([tapAt]). El combate empieza
- * al pulsar "Empezar" ([start]): ya no se puede mover a nadie, los enemigos aparecen y
- * recorren las rutas, cada vez
+ * Flujo: primero hay una fase de preparación. El jugador elige una mascota de la reserva
+ * ([selectPet]) y toca un punto de hierba para colocarla; tocando una ya colocada la recoge
+ * para recolocarla con el siguiente toque ([tapAt]) o retirarla a la reserva ([withdraw]).
+ * Colocar, mover y retirar se puede **en cualquier momento**, también en pleno combate. Una
+ * mascota retirada durante el combate descansa: recupera energía
+ * ([DefenseBalance.RESERVE_ENERGY_REGEN_PER_SECOND], vía [onPetRested]) hasta la que tenía
+ * al entrar al combate ([entryEnergy]). El combate empieza al pulsar el botón de jugar
+ * ([start]): los enemigos aparecen y recorren las rutas, cada vez
  * más rápido cada [DefenseBalance.SPEED_STEP_SECONDS], mientras que la velocidad
  * de ataque, el daño y la precisión de cada mascota dependen de su estado. Cada
  * enemigo derrotado informa de la mascota que lo remató ([onEnemyKilledBy]); cada
@@ -62,6 +70,8 @@ class DefenseGame(
     private val onEnemyKilledBy: (String) -> Unit,
     private val onPetFired: (String) -> Unit,
     private val random: Random = Random.Default,
+    /** Una mascota de la reserva recupera energía: (id, cantidad, tope). */
+    private val onPetRested: (String, Double, Double) -> Unit = { _, _, _ -> },
 ) {
     private val routes = map.routes.map(::RoutePath)
 
@@ -69,7 +79,6 @@ class DefenseGame(
 
     /** Mascotas criadas disponibles en esta partida, por id (últimas instantáneas). */
     private var pets: Map<String, PetEntity> = emptyMap()
-    private var petOrder: List<String> = emptyList()
     var selectedId: String? = null
         private set
 
@@ -90,26 +99,59 @@ class DefenseGame(
     fun updatePets(value: List<PetEntity>, socialization: Map<String, Double> = emptyMap()) {
         this.socialization = socialization
         pets = value.associateBy { it.id }
-        petOrder = value.map { it.id }
         defenders.values.forEach { d -> pets[d.pet.id]?.let { d.updatePet(it, this) } }
-        if (!started && (selectedId == null || selectedId !in pets)) selectedId = firstUnplaced()
+        if (selectedId != null && (selectedId !in pets || selectedId in defenders)) selectedId = null
+        if (editingId != null && editingId !in defenders) editingId = null
     }
 
     /**
-     * Elige en la barra qué mascota coloca el próximo toque en el mapa. Si ya está colocada,
-     * la recoge para recolocarla. Solo en la fase de preparación.
+     * Elige qué mascota coloca el próximo toque en el mapa (o la suelta si ya estaba elegida).
+     * Si ya está colocada, la recoge para recolocarla o retirarla.
      */
     fun selectPet(petId: String) {
-        if (started || petId !in pets) return
+        if (gameOver || petId !in pets) return
         if (petId in defenders) {
             editingId = if (editingId == petId) null else petId
+            selectedId = null
         } else {
-            selectedId = petId
+            selectedId = if (selectedId == petId) null else petId
             editingId = null
         }
     }
 
-    private fun firstUnplaced() = petOrder.firstOrNull { it !in defenders }
+    /**
+     * Dónde está el puntero (coordenadas de mapa) mientras se lleva una mascota en la mano:
+     * ahí se dibuja, a modo de cursor. `null` = no se ve (ratón fuera o dedo levantado).
+     */
+    var pointer: Offset? = null
+
+    /** Mascota que se lleva "en la mano": la elegida de la reserva o la recogida del mapa. */
+    val handPet: PetEntity? get() = pets[editingId ?: selectedId]
+
+    /** Si la mascota de la mano se puede soltar en [p] (hierba libre). */
+    fun canDropAt(p: Offset) = isFreeGrass(p, exceptId = editingId)
+
+    /** Suelta lo que se tenga elegido (mascota por colocar o recogida). */
+    fun clearSelection() {
+        selectedId = null
+        editingId = null
+    }
+
+    /** Retira la mascota [petId] del mapa a la reserva, donde descansa. */
+    fun withdraw(petId: String) {
+        if (gameOver) return
+        defenders.remove(petId) ?: return
+        if (editingId == petId) editingId = null
+    }
+
+    /**
+     * Energía con la que entró al combate cada mascota que ha estado en el mapa esta partida
+     * (la primera vez que se colocó): el tope de lo que recupera descansando.
+     */
+    val entryEnergy = mutableMapOf<String, Double>()
+
+    // Acumulado de descanso pendiente de mandar (se manda a ratos, no en cada frame).
+    private var restPending = 0.0
 
     // --- Estado de la partida -------------------------------------------------------------
 
@@ -140,8 +182,8 @@ class DefenseGame(
     /** Velocidad actual de cada enemigo en el mapa (px de mapa/s). */
     val enemySpeed get() = DefenseRules.enemySpeed(elapsed)
 
-    /** El tinte verde de "aquí puedes colocarla": en preparación, con una mascota por colocar o recolocar. */
-    val showPlacement get() = !started && !gameOver && (editingId != null || selectedId in pets)
+    /** El tinte verde de "aquí puedes colocarla": con una mascota por colocar o recolocar. */
+    val showPlacement get() = !gameOver && (editingId != null || selectedId in pets)
 
     /** Celdas de hierba donde cabe la huella de una mascota (para el tinte de colocación). */
     val placeableCells: List<Rect> by lazy {
@@ -160,6 +202,7 @@ class DefenseGame(
         get() = DefenseHudState(
             placedIds = defenders.keys.toSet(),
             selectedId = selectedId,
+            entryEnergy = entryEnergy.toMap(),
             editingId = editingId,
             started = started,
             canStart = canStart,
@@ -171,14 +214,17 @@ class DefenseGame(
         )
 
     /**
-     * Un toque en el mapa durante la preparación: sobre una mascota colocada la recoge (o la
-     * suelta si ya estaba recogida); en hierba mueve la recogida o coloca la seleccionada.
+     * Un toque en el mapa (en preparación o en combate): sobre una mascota colocada la recoge
+     * (o la suelta si ya estaba recogida); en hierba mueve la recogida o coloca la elegida.
      */
     fun tapAt(p: Offset) {
-        if (started || gameOver) return
+        if (gameOver) return
         val touched = defenders.values.lastOrNull { it.contains(p) }
         when {
-            touched != null -> editingId = if (editingId == touched.pet.id) null else touched.pet.id
+            touched != null -> {
+                editingId = if (editingId == touched.pet.id) null else touched.pet.id
+                selectedId = null
+            }
             editingId != null -> moveEditingTo(p)
             else -> placePetAt(p)
         }
@@ -187,13 +233,15 @@ class DefenseGame(
     /** Coloca la mascota seleccionada centrada en [p] si ese punto es hierba libre. */
     fun placePetAt(p: Offset) {
         val pet = pets[selectedId] ?: return
-        if (started || gameOver) return
+        if (gameOver || pet.id in defenders) return
         if (!isFreeGrass(p, exceptId = null)) {
             markers += InvalidMarker(p)
             return
         }
         defenders[pet.id] = Defender(pet, p)
-        selectedId = firstUnplaced()
+        // La primera vez que entra fija su energía máxima para el resto de la partida.
+        entryEnergy.getOrPut(pet.id) { pet.needs.energy }
+        selectedId = null
     }
 
     private fun moveEditingTo(p: Offset) {
@@ -215,8 +263,6 @@ class DefenseGame(
     fun start() {
         if (!canStart) return
         started = true
-        editingId = null
-        selectedId = null
     }
 
     fun update(dt: Double) {
@@ -231,6 +277,7 @@ class DefenseGame(
         markers.forEach { it.age += dt }
         markers.removeAll { it.age >= InvalidMarker.LIFE }
         if (!running) return
+        restInReserve(dt)
         elapsed += dt
         spawnIn -= dt
         if (spawnIn <= 0) {
@@ -239,6 +286,19 @@ class DefenseGame(
             nextRoute = (nextRoute + 1) % routes.size
             val level = DefenseRules.enemyLevel(elapsed)
             enemies += Enemy(route, EnemyEntity.spawn(level, DefenseRules.enemyKind(level)), enemies.size)
+        }
+    }
+
+    /** Las que ya combatieron y están en la reserva recuperan energía hasta su tope. */
+    private fun restInReserve(dt: Double) {
+        restPending += dt
+        if (restPending < REST_REPORT_SECONDS) return
+        val amount = DefenseBalance.RESERVE_ENERGY_REGEN_PER_SECOND * restPending
+        restPending = 0.0
+        for ((id, cap) in entryEnergy) {
+            if (id in defenders) continue
+            val pet = pets[id] ?: continue
+            if (pet.needs.energy < cap) onPetRested(id, amount, cap)
         }
     }
 
@@ -266,17 +326,26 @@ class DefenseGame(
         onPetFired(defender.pet.id)
     }
 
-    /** Limpia el mapa y vuelve a la preparación, con las mascotas donde estaban. */
+    /**
+     * Limpia el mapa y vuelve a la preparación, con las mascotas donde estaban. Es una partida
+     * nueva: su energía de entrada es la que tienen ahora.
+     */
     fun restart() {
         val placed = defenders.values.map { it.pet to it.foot }
         defenders.clear()
-        placed.forEach { (pet, foot) -> defenders[pet.id] = Defender(pets[pet.id] ?: pet, foot) }
+        entryEnergy.clear()
+        restPending = 0.0
+        placed.forEach { (pet, foot) ->
+            val current = pets[pet.id] ?: pet
+            defenders[pet.id] = Defender(current, foot)
+            entryEnergy[pet.id] = current.needs.energy
+        }
         enemies.clear()
         projectiles.clear()
         effects.clear()
         texts.clear()
         markers.clear()
-        selectedId = firstUnplaced()
+        selectedId = null
         editingId = null
         started = false
         elapsed = 0.0
@@ -288,6 +357,11 @@ class DefenseGame(
     }
 
     internal fun nextRandom() = random.nextDouble()
+
+    private companion object {
+        /** Cada cuánto se manda al controlador la energía recuperada en la reserva. */
+        const val REST_REPORT_SECONDS = 0.25
+    }
 }
 
 /** Una de las mascotas del jugador en el mapa. */

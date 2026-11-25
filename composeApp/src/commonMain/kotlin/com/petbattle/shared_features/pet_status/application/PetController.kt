@@ -172,6 +172,12 @@ class PetController(
         set(GameRules.petFired(gameState, petId))
     }
 
+    /** La mascota [petId] descansa en la reserva del combate (ver GameRules.restInBattle). */
+    fun restInBattle(petId: String, amount: Double, cap: Double) {
+        val gameState = _gameState.value ?: return
+        set(GameRules.restInBattle(gameState, petId, amount, cap))
+    }
+
     /** La mascota [petId] se cansó luchando. */
     fun spendEnergy(petId: String, amount: Double) {
         val gameState = _gameState.value ?: return

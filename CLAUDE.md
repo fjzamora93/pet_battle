@@ -22,5 +22,8 @@ para comandos de compilación y reglas del juego.
     biomas, y ciclo del día.
   - **Compartido**: cómo afectan los cuidados a los stats de combate (y cómo el combate
     desgasta las necesidades) va en **los dos** documentos, aunque quede duplicado.
+- `docs/mapas-de-defensa.md` explica cómo se generan la ruta de los enemigos y las zonas
+  colocables de cada mapa de defensa a partir de su imagen (`tools/defense_maps/`). Si cambia
+  ese proceso o se añade un mapa, hay que actualizarlo.
 - `docs/reglas-pendientes.md` recoge lo planeado pero aún no implementado. Al implementar
   algo de ahí, pásalo al documento de reglas que corresponda y quítalo de pendientes.

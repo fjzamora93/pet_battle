@@ -1,0 +1,30 @@
+{
+  "image": "composeApp/src/commonMain/composeResources/drawable/map_defense_1.png",
+  "kotlin_out": "composeApp/src/commonMain/kotlin/com/petbattle/features/defense/domain/maps/ForestMap.kt",
+  "debug_out": "tools/defense_maps/map_defense_1_debug.jpg",
+  "kotlin_val": "forestMap",
+  "route_name": "forest",
+  "description": "Bosque del río (map_defense_1): un solo camino de izquierda a derecha con dos anillos que rodear y un puente. Las celdas '#' son donde se pueden colocar mascotas.",
+  "scale": 1.5,
+  "cell_size": 16,
+  "simplify_px": 2.0,
+  "path_margin_px": 6,
+  "path_hsv": [[[9, 90, 140], [24, 215, 255]]],
+  "water_hsv": [[[90, 120, 120], [115, 255, 255]]],
+  "rock_hsv": [[[0, 0, 80], [179, 45, 220]]],
+  "spawn": [-60, 179],
+  "exit": [1084, 635],
+  "guides": [
+    [24, 179],
+    [480, 290],
+    [600, 190],
+    [718, 80],
+    [806, 180],
+    [716, 270],
+    [600, 190],
+    [488, 565],
+    [130, 773],
+    [600, 855],
+    [999, 635]
+  ]
+}

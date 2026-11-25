@@ -25,6 +25,12 @@ object DefenseBalance {
     // combate (ver PetCombatStatsRules).
     const val PROJECTILE_SPEED = 650.0
 
+    /**
+     * Energía por segundo que recupera una mascota retirada a la reserva en plena partida
+     * (hasta la energía con la que entró al combate).
+     */
+    const val RESERVE_ENERGY_REGEN_PER_SECOND = 5.0
+
     /** Huella en el suelo que debe estar íntegramente sobre hierba. */
     const val PET_FOOTPRINT_RADIUS = 28.0
 }

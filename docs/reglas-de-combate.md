@@ -23,17 +23,33 @@ Fuentes en el código:
 
 ## 1. Desarrollo de una partida (modo defensa)
 
-1. **Preparación.** Se colocan en zonas de hierba las mascotas **adultas**, de **cualquier
-   bioma** (los polluelos no combaten), cada una una sola vez. Tocar un pájaro colocado lo recoge
-   (se ve semitransparente) y el siguiente toque en hierba lo mueve. No aparecen enemigos.
-2. **"Empezar".** Se activa con al menos un pájaro colocado. Al pulsarlo desaparece la
-   interfaz de colocación y empieza el combate; ya no se puede mover a nadie.
-3. **Combate.** Aparece un enemigo cada **2,2 s**, alternando entre los caminos del mapa.
+1. **Preparación.** Combaten las mascotas **adultas** de **cualquier bioma** (los polluelos
+   no). Esperan en la **reserva**: un panel lateral de ancho fijo con una tarjeta por
+   **especie** que aún tiene mascotas sin colocar (y cuántas). Las que están en el mapa **no
+   aparecen** en la reserva. Al tocar una especie se abre, por encima del mapa, un cajón con sus
+   mascotas de la reserva **ordenadas por rareza** (y luego por nivel), cada una con su escudo de
+   rareza, nivel, stats de combate y descanso. Al elegir una, la mascota pasa a ser el
+   **cursor** (con su alcance y su huella en verde si se puede soltar ahí, en rojo si no) y el
+   siguiente toque en hierba la coloca. Tocar un pájaro colocado lo recoge: el siguiente toque
+   en hierba lo mueve, y el botón **"Descansar"** lo devuelve a la reserva. No aparecen enemigos.
+2. **Jugar.** El botón de jugar (esquina inferior derecha) se activa con al menos un pájaro
+   colocado y empieza el combate. **Colocar, mover y retirar se puede en cualquier momento**,
+   también en combate. En combate, ese mismo botón **acelera la partida**: x1 → x2 → x3 → x4 y
+   vuelta a x1 (todo va más rápido: enemigos, disparos, cansancio y descanso).
+3. **Combate.** Aparece un enemigo cada **2,2 s**, alternando entre los caminos del mapa (este
+   mapa solo tiene uno).
    Cada enemigo que llega a la salida quita **1 vida** de **10**. Con 0 vidas se pierde.
    No hay victoria: la partida dura lo que se aguante.
 4. **Reintentar** vuelve a la preparación con los pájaros donde estaban.
 
-El mapa es siempre el mismo (*jungle camp*), sea cual sea el bioma.
+El mapa es siempre el mismo, sea cual sea el bioma: el **bosque del río** (`map_defense_1`),
+de 1536 × 1536 px de mapa. Tiene **un solo camino** de unos **6165 px** que entra por la
+izquierda, sube a rodear el anillo de arriba, vuelve, cruza el puente, rodea el anillo de abajo
+a la izquierda y sale por la derecha. En pantalla, el mapa **llena** el espacio que deja la reserva (sin
+bandas): lo que no cabe se ve **arrastrando** el mapa (o con la rueda del ratón). Las mascotas
+se colocan en hierba, arbustos o árboles;
+no en el camino, el río ni las rocas. Cómo se generan la ruta y las zonas colocables a partir
+de la imagen: ver [mapas-de-defensa.md](mapas-de-defensa.md).
 
 ## 2. Enemigos
 
@@ -137,7 +153,11 @@ Las tablas de habilidades por tipo y por especie+tipo existen pero están vacía
 - El **clima** vale siempre 100 (pendiente de reglas).
 
 **Cómo afecta el combate a los cuidados:** **cada disparo** gasta **1 de descanso**, resta
-**0,5** de higiene y de plumaje, y afila **+0,5** el pico y las garras.
+**0,5** de higiene y de plumaje, y afila **+0,5** el pico y las garras. Una mascota retirada a la
+**reserva** en plena partida **descansa**: recupera **5 de descanso por segundo** de partida,
+pero **solo hasta el descanso con el que entró al combate** (la primera vez que se colocó en esa
+partida; si entró con 80, ese es su máximo). Reintentar empieza una partida nueva: el tope pasa
+a ser el descanso que tenga en ese momento.
 
 Cómo sube y baja cada necesidad fuera del combate está en
 [reglas-de-cuidado.md](reglas-de-cuidado.md).
@@ -153,6 +173,8 @@ Cómo sube y baja cada necesidad fuera del combate está en
 ## 6. Interferencias conocidas (pendientes de equilibrar)
 
 1. La dificultad del combate solo depende del reloj: siempre se acaba perdiendo.
+   Con el bosque del río (camino de ~6165 px, casi 4 veces el del mapa anterior) un enemigo a
+   36 px/s tarda casi 3 minutos en cruzar: las primeras oleadas son mucho más fáciles que antes.
 2. *(Compartida)* El descanso se rellena casi al instante (10 s durmiendo, o al llegar la
    noche): pese a que ahora baja con el tiempo (−4/h), sigue siendo fácil de mantener.
 3. *(Compartida)* Una mascota sola en su bioma tiene social 0, así que su confianza no pasa

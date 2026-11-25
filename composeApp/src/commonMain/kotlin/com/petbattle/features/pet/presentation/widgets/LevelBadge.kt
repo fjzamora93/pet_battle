@@ -162,7 +162,7 @@ private fun TierLine(tier: Int) {
 }
 
 /** Nombre de cada rareza. */
-private fun tierLabel(tier: Int) = when (tier) {
+fun tierLabel(tier: Int) = when (tier) {
     1 -> "Común"
     2 -> "Poco común"
     3 -> "Raro"
@@ -171,7 +171,7 @@ private fun tierLabel(tier: Int) = when (tier) {
 }
 
 /** Escudo del nivel del color de cada rareza. */
-private fun tierShield(tier: Int) = when (tier) {
+fun tierShield(tier: Int) = when (tier) {
     1 -> GameIcon.Tier1
     2 -> GameIcon.Tier2
     3 -> GameIcon.Tier3

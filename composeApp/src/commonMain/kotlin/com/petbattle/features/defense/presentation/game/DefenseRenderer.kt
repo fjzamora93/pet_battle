@@ -25,6 +25,7 @@ import com.petbattle.shared_features.pet_species.domain.PetSpecies
 import com.petbattle.shared_features.pet_species.presentation.BirdSheet
 import com.petbattle.shared_features.pet_status.domain.PetNeedsBalance
 import com.petbattle.features.defense.domain.DefenseBalance
+import com.petbattle.shared_features.pet_combat.domain.PetCombatBalance
 import com.petbattle.features.defense.domain.entities.EnemyKind
 import kotlin.math.floor
 import kotlin.math.sin
@@ -173,6 +174,7 @@ fun DrawScope.drawDefense(game: DefenseGame, sprites: DefenseSprites, text: Text
             fx.position - Offset(SkillSheet.SIZE / 2, SkillSheet.SIZE / 2), SkillSheet.SIZE,
         )
     }
+    drawHandPet(game, sprites)
     for (t in game.texts) {
         text.draw(this, t.text, t.position, t.color, t.sizePx, alpha = (1 - t.age / t.life).toFloat().coerceIn(0f, 1f))
     }
@@ -183,6 +185,32 @@ fun DrawScope.drawDefense(game: DefenseGame, sprites: DefenseSprites, text: Text
         drawLine(c, p + Offset(-12f, -12f), p + Offset(12f, 12f), 6f, StrokeCap.Round)
         drawLine(c, p + Offset(12f, -12f), p + Offset(-12f, 12f), 6f, StrokeCap.Round)
     }
+}
+
+/**
+ * La mascota que se lleva en la mano, bajo el puntero (hace de cursor): su alcance y su huella
+ * en verde si se puede soltar ahí o en rojo si no.
+ */
+private fun DrawScope.drawHandPet(game: DefenseGame, sprites: DefenseSprites) {
+    val pet = game.handPet ?: return
+    val at = game.pointer ?: return
+    val ok = game.canDropAt(at)
+    val size = Defender.SIZE
+    // Mismas medidas que un Defender colocado en [at].
+    val feet = at + Offset(0f, (DefenseBalance.PET_FOOTPRINT_RADIUS * 0.6).toFloat())
+    val chest = feet - Offset(0f, size * 0.45f)
+    val range = PetCombatBalance.range(pet.species).toFloat()
+    drawCircle(Color(0x18FFFFFF), range, chest)
+    drawCircle(Color(0x88FFFFFF), range, chest, style = Stroke(2f))
+    val foot = if (ok) Color(0xFF7CFF6B) else Color(0xFFE53935)
+    drawCircle(foot.copy(alpha = 0.45f), DefenseBalance.PET_FOOTPRINT_RADIUS.toFloat(), at)
+    drawCircle(foot, DefenseBalance.PET_FOOTPRINT_RADIUS.toFloat(), at, style = Stroke(3f))
+    val col = BirdSheet.loopFrame(BirdSheet.IDLE_ROW, pet.species, game.time)
+    drawSpriteFrame(
+        sprites.pets.getValue(pet.species), BirdSheet.FRAME_SIZE, col, BirdSheet.IDLE_ROW,
+        Offset(feet.x - size / 2, feet.y - size), size, alpha = if (ok) 0.85f else 0.5f,
+        filterQuality = BirdSheet.FILTER,
+    )
 }
 
 private fun Math_toDegrees(rad: Float) = rad * 180f / kotlin.math.PI.toFloat()

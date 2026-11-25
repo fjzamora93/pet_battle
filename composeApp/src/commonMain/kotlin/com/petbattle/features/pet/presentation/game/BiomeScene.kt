@@ -108,9 +108,9 @@ private const val DEPTH_GAP = 0.35
  *
  * Con una herramienta en la mano ([handTool]) el cursor se convierte en ella y los toques
  * cambian: con agua, tocar una mascota la limpia ([onPetCleaned]); con comida, tocar el suelo
- * la deja allí ([onFoodDropped]). La comida del suelo ([groundFood]) atrae a las mascotas
- * despiertas que la quieran ([wantsFood]): la más cercana vuela hasta ella, la picotea y avisa
- * con [onFoodEaten].
+ * la deja allí ([onFoodDropped]). La comida del suelo ([groundFood]) atrae a todas las
+ * mascotas despiertas que la quieran ([wantsFood]): vuelan hasta ella, la primera en llegar la
+ * picotea y avisa con [onFoodEaten], y las demás desisten.
  */
 @Composable
 fun BiomeScene(
@@ -517,6 +517,8 @@ private class BiomeSceneState {
                 a.foodId = null
                 a.eatT = -1.0
             }
+            // Otra llegó antes y ya se la está comiendo: sigue su vuelo y se posa donde pueda.
+            if (a.foodId != null && a.eatT < 0 && isBeingEatenByOther(a.foodId!!, a)) a.foodId = null
             if (a.eatT >= 0) {
                 // Empieza a picotear cuando termina de posarse.
                 if (a.landT < 0) a.eatT += dt
@@ -550,19 +552,27 @@ private class BiomeSceneState {
             if (a.splashT > SPLASH_DURATION) a.splashT = -1.0
         }
 
-        // Cada comida sin dueño atrae a la mascota libre más cercana que la quiera.
-        val claimed = actors.values.mapNotNull { it.foodId }.toSet()
-        for (food in foods) {
-            if (food.id in claimed) continue
-            val taker = pets
-                .filter { !isResting(it) && wantsFood(it, food.food) }
-                .mapNotNull { pet -> actors[pet.id]?.takeIf { it.foodId == null && it.eatT < 0 } }
-                .minByOrNull { abs(it.x - food.x) + abs(it.depth - food.depth) * 0.3 }
-                ?: continue
-            goToFood(taker, food)
+        // Cada mascota libre va a por la comida que quiera más cercana que nadie esté comiendo.
+        // Varias pueden ir a por la misma: se la queda la primera que llega.
+        val beingEaten = actors.values.filter { it.eatT >= 0 }.mapNotNull { it.foodId }.toSet()
+        val available = foods.filter { it.id !in beingEaten }
+        if (available.isNotEmpty()) {
+            for (pet in pets) {
+                if (isResting(pet)) continue
+                val a = actors[pet.id]?.takeIf { it.foodId == null && it.eatT < 0 } ?: continue
+                val food = available
+                    .filter { wantsFood(pet, it.food) }
+                    .minByOrNull { abs(it.x - a.x) + abs(it.depth - a.depth) * 0.3 }
+                    ?: continue
+                goToFood(a, food)
+            }
         }
         return eaten
     }
+
+    /** Alguna mascota distinta de [self] ya está comiéndose la comida [foodId]. */
+    private fun isBeingEatenByOther(foodId: Long, self: Actor) =
+        actors.values.any { it !== self && it.foodId == foodId && it.eatT >= 0 }
 
     /** Vuela hasta posarse junto a [food] (al lado por el que llega), mirando hacia ella. */
     private fun goToFood(a: Actor, food: GroundFood) {
@@ -634,6 +644,8 @@ private class BiomeSceneState {
         a.x = a.target
         // Se posa cuando llega también a su profundidad.
         if (a.depth != a.targetDepth) return
+        // Si otra llegó antes a su comida, se posa como cualquier otra vez.
+        if (a.foodId != null && isBeingEatenByOther(a.foodId!!, a)) a.foodId = null
         // Si venía a por comida, se posa a su lado aunque haya otra cerca, y empieza a picotear.
         if (a.foodId != null) {
             land(a)

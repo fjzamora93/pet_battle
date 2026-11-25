@@ -8,7 +8,7 @@ import com.petbattle.features.defense.domain.entities.EnemyEntity
 import com.petbattle.features.defense.domain.entities.EnemyKind
 import com.petbattle.features.defense.domain.entities.MapPoint
 import com.petbattle.features.defense.domain.entities.MapRoute
-import com.petbattle.features.defense.domain.maps.jungleCampMap
+import com.petbattle.features.defense.domain.maps.forestMap
 import com.petbattle.shared_features.pet_combat.domain.PetCombatStats
 import com.petbattle.shared_features.pet_combat.domain.PetCombatStatsRules
 import com.petbattle.shared_features.pet_skills.domain.PetSkillsCatalog
@@ -57,14 +57,15 @@ class DefenseDomainTest {
 
     @Test fun mapPlacementRules() {
         val r = DefenseBalance.PET_FOOTPRINT_RADIUS
-        assertTrue(jungleCampMap.canPlace(MapPoint(1000.0, 540.0), r))
-        assertFalse(jungleCampMap.canPlace(MapPoint(700.0, 430.0), r)) // camino
-        assertFalse(jungleCampMap.canPlace(MapPoint(1040.0, 260.0), r)) // cabaña
-        for (route in jungleCampMap.routes) {
+        assertTrue(forestMap.canPlace(MapPoint(380.0, 420.0), r)) // hierba
+        assertFalse(forestMap.canPlace(MapPoint(732.0, 675.0), r)) // puente (camino)
+        assertFalse(forestMap.canPlace(MapPoint(450.0, 660.0), r)) // río
+        assertFalse(forestMap.canPlace(MapPoint(570.0, 180.0), r)) // roca
+        for (route in forestMap.routes) {
             val path = RoutePath(route)
             var d = 0.0
             while (d <= path.length) {
-                assertFalse(jungleCampMap.canPlace(path.positionAt(d), r), "${route.name} at $d")
+                assertFalse(forestMap.canPlace(path.positionAt(d), r), "${route.name} at $d")
                 d += 8
             }
         }

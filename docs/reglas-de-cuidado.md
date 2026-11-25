@@ -48,18 +48,20 @@ Las **ambientales** no dependen de la interacción del jugador y no se guardan.
 - **Descuido**: hambre, descanso o higiene por debajo de **20** cuentan como descuidadas;
   cada una hace que la diversión baje un 50% más rápido.
 - **Dar de comer**: se elige una comida y se deja en el suelo del bioma tocando la escena (se
-  pueden dejar varias). Va a por ella la mascota **despierta, con hambre (saciedad < 75) y con
-  esa comida en su dieta** más cercana: vuela hasta ella, la picotea y se la come. Si nadie se
-  la come, desaparece a los **10 segundos**. La comida dejada no se guarda en la partida y se
-  pierde al cambiar de bioma.
+  pueden dejar varias). Van a por ella **todas las mascotas despiertas que tengan esa comida en
+  su dieta**, tengan hambre o no: cada una vuela a la más cercana que quiera. **Se la queda la
+  primera que llega** (aunque esté llena) y las demás desisten. Si nadie se la come, desaparece
+  a los **10 segundos**. La comida dejada no se guarda en la partida y se pierde al cambiar de
+  bioma.
 - **Qué le hace la comida** (quien la come siempre se la come):
   - de su dieta y con hambre (saciedad < 75): sacia +25 y digestión +8;
   - de su dieta sin hambre: sacia +25 y digestión −10;
   - fuera de su dieta: no sacia y digestión −15 (−25 si además no tenía hambre);
   - **comer no ensucia**;
   - el polluelo come de todo (nunca hay comida ajena para él);
-  - como solo va a por la comida una mascota con hambre y de su dieta, dejándola en el suelo
-    siempre se da el primer caso: comida ajena y comer sin hambre ya no ocurren en la práctica.
+  - como solo van a por comida de su dieta, dejándola en el suelo nunca comen comida ajena;
+    pero sí pueden **comer sin hambre**: dejar comida de más castiga la digestión de quien
+    llegue antes.
 - **Limpiar**: con el agua en la mano se toca la mascota que se quiere limpiar (cualquiera del
   bioma, no solo la seleccionada). Mejora a la vez higiene, plumaje y pico y garras; se puede si
   a cualquiera de las tres le falta algo.
@@ -114,7 +116,11 @@ y su nivel.
 - El **clima** vale siempre 100 (pendiente de reglas).
 
 **Cómo afecta el combate a los cuidados:** **cada disparo** gasta **1 de descanso**, resta
-**0,5** de higiene y de plumaje, y afila **+0,5** el pico y las garras.
+**0,5** de higiene y de plumaje, y afila **+0,5** el pico y las garras. Una mascota retirada a la
+**reserva** en plena partida **descansa**: recupera **5 de descanso por segundo** de partida,
+pero **solo hasta el descanso con el que entró al combate** (la primera vez que se colocó en esa
+partida; si entró con 80, ese es su máximo). Reintentar empieza una partida nueva: el tope pasa
+a ser el descanso que tenga en ese momento.
 
 Los totales de cada stat, el rango por especie y el resto del combate están en
 [reglas-de-combate.md](reglas-de-combate.md).

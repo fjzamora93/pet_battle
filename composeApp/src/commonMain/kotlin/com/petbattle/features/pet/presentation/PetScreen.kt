@@ -144,6 +144,7 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
         if (handTool != null) PlatformBackHandler { handTool = null }
 
         fun openMenu(tab: MenuTab) {
+            handTool = null
             menuTab = tab
             menuOpen = true
         }
@@ -203,7 +204,10 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
 
         Box(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
             Row(Modifier.align(Alignment.TopStart), verticalAlignment = Alignment.CenterVertically) {
-                OptionsButton(onOptions)
+                OptionsButton({
+                    handTool = null
+                    onOptions()
+                })
                 CoinCounter(current.gold, onShop = { openMenu(MenuTab.eggs) }, Modifier.padding(start = 6.dp))
             }
             if (pet != null) {
@@ -221,11 +225,25 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                 ActionBar(
                     pet = pet,
                     handTool = handTool,
+                    // Cada opción suelta lo que hubiera en la mano: solo hay una seleccionada a la vez.
                     // Con comida en la mano, el botón la suelta; si no, abre el menú de comidas.
-                    onFeed = { if (handTool is HandTool.FoodItem) handTool = null else choosingFood = true },
-                    onToggleSleep = controller::toggleSleep,
+                    onFeed = {
+                        if (handTool is HandTool.FoodItem) {
+                            handTool = null
+                        } else {
+                            handTool = null
+                            choosingFood = true
+                        }
+                    },
+                    onToggleSleep = {
+                        handTool = null
+                        controller.toggleSleep()
+                    },
                     onClean = { handTool = if (handTool == HandTool.Water) null else HandTool.Water },
-                    onDefend = onDefend,
+                    onDefend = {
+                        handTool = null
+                        onDefend()
+                    },
                     modifier = Modifier.align(Alignment.BottomStart),
                 )
             } else {

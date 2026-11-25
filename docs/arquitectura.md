@@ -75,7 +75,8 @@ composeApp/src/
                                 repositorio y PetController
       features/                 las pantallas
         pet/                    pantalla de la mascota (escena del bioma + paneles)
-        defense/                modo defensa (reglas, mapa, bucle, renderizado)
+        defense/                modo defensa (reglas, mapa, bucle, renderizado); los mapas
+                                se generan con tools/defense_maps (ver mapas-de-defensa.md)
     composeResources/
       drawable/                 sprites, fondos, iconos (PNG)
       files/sounds/             música (OGG)

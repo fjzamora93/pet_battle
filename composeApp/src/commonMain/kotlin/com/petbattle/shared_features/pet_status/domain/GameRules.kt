@@ -134,11 +134,12 @@ object GameRules {
     }
 
     /**
-     * Si la mascota irá a por [food] dejada en el suelo: solo despierta, con hambre y si es de
-     * su dieta (los polluelos comen de todo).
+     * Si la mascota irá a por [food] dejada en el suelo: despierta y si es de su dieta (los
+     * polluelos comen de todo), tenga hambre o no. Sin hambre se la come igual, a costa de la
+     * digestión (ver PetNeedsRules.offerFood).
      */
     fun wantsGroundFood(pet: PetEntity, food: Food) =
-        !pet.isEgg && PetNeedsRules.canFeed(pet.needs) && PetNeedsRules.isHungry(pet.needs) && food in pet.diet
+        !pet.isEgg && PetNeedsRules.canFeed(pet.needs) && food in pet.diet
 
     /** Aplica [change] al estado de la mascota [petId] (no hace nada si no existe o es un huevo). */
     fun updateNeeds(
@@ -203,6 +204,17 @@ object GameRules {
     fun awardXp(gameState: GameStateEntity, petId: String, amount: Int): GameStateEntity {
         val pet = gameState.byId(petId) ?: return gameState
         return gameState.replace(pet.copy(progression = PetProgression.gainXp(pet.progression, amount)))
+    }
+
+    /**
+     * La mascota [petId] descansa en la reserva durante un combate: recupera [amount] de
+     * energía, sin pasar de [cap] (la energía con la que entró al combate).
+     */
+    fun restInBattle(gameState: GameStateEntity, petId: String, amount: Double, cap: Double): GameStateEntity {
+        val pet = gameState.byId(petId) ?: return gameState
+        if (amount <= 0 || pet.needs.energy >= cap) return gameState
+        val energy = minOf(cap, pet.needs.energy + amount)
+        return gameState.replace(pet.copy(needs = pet.needs.copy(energy = energy)))
     }
 
     /** La mascota [petId] se cansa por luchar (cualquiera, activa o en reposo). */

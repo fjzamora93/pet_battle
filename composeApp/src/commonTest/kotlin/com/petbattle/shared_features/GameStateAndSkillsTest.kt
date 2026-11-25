@@ -71,7 +71,7 @@ class GameStateAndSkillsTest {
         return gameState to result
     }
 
-    @Test fun onlyAwakeHungryPetsGoForGroundFoodTheyLike() {
+    @Test fun awakePetsGoForGroundFoodTheyLikeEvenWhenFull() {
         val dove = withAdult(inWoodland, PetSpecies.whiteDove, "Paloma").active!!
         val liked = dove.diet.first()
         val disliked = Food.entries.first { it !in dove.diet }
@@ -79,7 +79,10 @@ class GameStateAndSkillsTest {
         assertTrue(GameRules.wantsGroundFood(hungry, liked))
         assertFalse(GameRules.wantsGroundFood(hungry, disliked))
         assertFalse(GameRules.wantsGroundFood(hungry.copy(needs = hungry.needs.copy(isSleeping = true)), liked))
-        assertFalse(GameRules.wantsGroundFood(dove.copy(needs = dove.needs.copy(satiety = 100.0)), liked))
+        // Sin hambre también va (y comer le sentará mal a la digestión).
+        val full = dove.copy(needs = dove.needs.copy(satiety = 100.0))
+        assertTrue(GameRules.wantsGroundFood(full, liked))
+        assertFalse(GameRules.wantsGroundFood(full, disliked))
         // Los polluelos comen de todo.
         val chick = hatch(inWoodland, "Pio").active!!
         val hungryChick = chick.copy(needs = chick.needs.copy(satiety = 0.0))
@@ -94,6 +97,16 @@ class GameStateAndSkillsTest {
         assertEquals(FeedResult.eaten, result)
         assertTrue(next.byId("Una-id")!!.needs.satiety > 0.0)
         assertEquals(hungry.byId("Otra-id"), next.byId("Otra-id"))
+    }
+
+    @Test fun restingInBattleRecoversEnergyUpToTheCap() {
+        val r = withAdult(inWoodland, PetSpecies.whiteDove, "Una")
+        val tired = GameRules.updateNeeds(r, "Una-id") { it.copy(energy = 50.0) }
+        assertEquals(60.0, GameRules.restInBattle(tired, "Una-id", 10.0, cap = 80.0).byId("Una-id")!!.needs.energy)
+        assertEquals(80.0, GameRules.restInBattle(tired, "Una-id", 100.0, cap = 80.0).byId("Una-id")!!.needs.energy)
+        // Por encima del tope no recupera (ni baja).
+        val full = GameRules.updateNeeds(r, "Una-id") { it.copy(energy = 90.0) }
+        assertEquals(90.0, GameRules.restInBattle(full, "Una-id", 10.0, cap = 80.0).byId("Una-id")!!.needs.energy)
     }
 
     @Test fun everySpeciesHasDietAndEveryFoodHasSpecies() {
