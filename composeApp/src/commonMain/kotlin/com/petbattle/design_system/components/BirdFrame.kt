@@ -1,4 +1,4 @@
-package com.petbattle.shared_features.pet_species.presentation.widgets
+package com.petbattle.design_system.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size

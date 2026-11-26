@@ -13,12 +13,12 @@ import androidx.compose.ui.use
 import androidx.compose.ui.geometry.Size
 import com.petbattle.core.ui.createWindPainter
 import com.petbattle.core.ui.drawSpriteFrame
-import com.petbattle.features.pet.presentation.game.BackdropLayers
+import com.petbattle.features.biome.presentation.game.BackdropLayers
 import com.petbattle.shared_features.biomes.domain.Biome
 import com.petbattle.shared_features.biomes.presentation.backgroundLayers
 import com.petbattle.shared_features.pet_species.presentation.BirdSheet
-import com.petbattle.features.pet.presentation.game.drawLayeredBackdrop
-import com.petbattle.features.pet.presentation.game.solidRowFraction
+import com.petbattle.features.biome.presentation.game.drawLayeredBackdrop
+import com.petbattle.features.biome.presentation.game.solidRowFraction
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
 import java.io.File

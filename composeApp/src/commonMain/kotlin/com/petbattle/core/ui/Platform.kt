@@ -9,3 +9,7 @@ expect fun PlatformBackHandler(onBack: () -> Unit)
 
 /** Oculta el puntero del ratón sobre este elemento si [hidden] (escritorio); Android no tiene puntero. */
 expect fun Modifier.hiddenPointer(hidden: Boolean): Modifier
+
+/** Si la pantalla es redonda (esfera de reloj): hay que dejar libres sus esquinas. */
+@Composable
+expect fun isRoundScreen(): Boolean

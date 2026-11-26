@@ -99,6 +99,11 @@ class PetController(
 
     fun toggleSleep() = applyToActive(PetNeedsRules::toggleSleep, saveNow = true)
 
+    /** Despierta a la mascota seleccionada si dormía (al elegir otra acción, como comer o limpiar). */
+    fun wake() {
+        if (_gameState.value?.active?.needs?.isSleeping == true) applyToActive(PetNeedsRules::wake, saveNow = true)
+    }
+
     /** Limpia a la mascota [petId]; `false` si ahora no se puede (dormida o ya limpia). */
     fun clean(petId: String): Boolean {
         val gameState = _gameState.value ?: return false

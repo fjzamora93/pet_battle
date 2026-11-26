@@ -1,6 +1,6 @@
 # Arquitectura del proyecto
 
-Última actualización: 2026-11-25.
+Última actualización: 2026-11-26.
 
 ## En resumen
 
@@ -15,7 +15,10 @@
 - **El estado de la partida es un solo objeto** (`GameStateEntity`) que expone un
   controlador (`PetController`) como `StateFlow`. La interfaz lo observa y le manda las
   acciones del jugador. Cada cambio se guarda solo, como un documento JSON.
-- **Sin motor de juego.** Las escenas (el bioma y el modo defensa) se dibujan en un `Canvas`
+- **Dos compilaciones de Android.** El *flavor* `normal` (móvil y tableta, con bioma,
+  cuidado y defensa) y el `watch` (reloj Wear OS, solo el modo cuidado). El código es el
+  mismo: la variante llega a `App()` como `AppVariant`.
+- **Sin motor de juego.** Las escenas (el bioma, el modo cuidado y el modo defensa) se dibujan en un `Canvas`
   de Compose con un bucle propio por frame (`withFrameNanos`).
 - **Pocas dependencias.** Compose, corrutinas y kotlinx.serialization. No hay inyección de
   dependencias, librería de navegación ni base de datos.
@@ -29,12 +32,30 @@ Todo sale del módulo `composeApp` (ver `composeApp/build.gradle.kts`), que decl
 
 | Target | Qué genera | Comando |
 |---|---|---|
-| `androidTarget` | APK de Android (minSdk 24, targetSdk 35, JVM 17) | `./gradlew :composeApp:assembleDebug` |
+| `androidTarget` | APK de Android para móvil/tableta (minSdk 24, targetSdk 35, JVM 17) | `./gradlew :composeApp:assembleNormalDebug` |
+| | APK de Android para reloj (Wear OS o Android normal, minSdk 24) | `./gradlew :composeApp:assembleWatchDebug` |
 | `jvm("desktop")` | App de escritorio | `./gradlew :composeApp:run` |
+| | La misma, simulando el reloj (ventana pequeña, solo cuidado) | `./gradlew :composeApp:run -Pwatch` |
 | | Ejecutable autónomo (con su propio Java) | `./gradlew :composeApp:createDistributable` |
 | | Paquete `.deb` para Ubuntu | `./gradlew :composeApp:packageDeb` |
 
 Requisitos: JDK 17 y, para Android, el Android SDK (`local.properties` con `sdk.dir`).
+
+### Flavors de Android: `normal` y `watch`
+
+La app Android tiene una dimensión de *flavor*, `device`, con dos valores:
+
+| Flavor | Dispositivo | Pantallas | Manifiesto propio |
+|---|---|---|---|
+| `normal` | Móvil y tableta | Bioma (entrada), cuidado y defensa | `src/androidNormal/AndroidManifest.xml`: siempre en horizontal |
+| `watch` | Reloj: Wear OS o Android normal, como el SaveWatch 2 (Android 8.1); minSdk 24 | Solo cuidado (entrada) | `src/androidWatch/AndroidManifest.xml`: `uses-feature android.hardware.type.watch` y app independiente (`com.google.android.wearable.standalone`) |
+
+Cada flavor fija `BuildConfig.APP_VARIANT` (`"normal"` o `"watch"`); `MainActivity` lo
+convierte en `AppVariant` (`core/config/AppVariant.kt`) y se lo pasa a `App()`. Con Kotlin
+Multiplatform los manifiestos de los flavors se indican a mano en `build.gradle.kts`
+(`sourceSets["watch"].manifest.srcFile(...)`): si no, AGP no los fusiona. Los dos flavors
+comparten `applicationId` (`com.petbattle`), como pide Google Play para publicar la versión
+de reloj en la misma ficha.
 
 ### Source sets
 
@@ -45,6 +66,7 @@ corresponden:
 |---|---|---|
 | `commonMain` | Ambas | El juego entero: dominio, controlador, pantallas, recursos |
 | `androidMain` | Android | `MainActivity`, guardado en SharedPreferences, audio con MediaPlayer, shader AGSL |
+| `androidNormal` / `androidWatch` | Cada flavor de Android | De momento solo su `AndroidManifest.xml` |
 | `desktopMain` | Escritorio | `main()` con la ventana, guardado en fichero, audio con javax.sound, shader SkSL |
 | `commonTest` | Ambas | Tests del dominio y del controlador |
 | `desktopTest` | Escritorio | Tests visuales (renderizan fuera de pantalla) y de recursos |
@@ -61,26 +83,35 @@ composeApp/src/
       App.kt                    raíz de la interfaz: tema, pantalla actual, música
       core/                     piezas técnicas sin reglas de juego
         audio/                  MusicController, MusicTrack, interfaz MusicPlayer
-        config/                 AppConfig (intervalo del tick, frecuencia de guardado)
+        config/                 AppConfig (intervalo del tick, frecuencia de guardado),
+                                AppVariant (normal o reloj)
         persistence/            interfaz KeyValueStore
         time/                   Clock, DayCycle (momento del día)
-        ui/                     utilidades de dibujo, diálogos, shader de viento
+        ui/                     utilidades de dibujo, código de cada plataforma, shader de viento
+      design_system/            el aspecto común de la interfaz
+        GameUi.kt               colores, estilo de texto e iconos (GameIcon)
+        components/             componentes compartidos entre pantallas: paneles y botones de
+                                madera, barra, opciones, panel de estados, selector de comida,
+                                diálogo de nombre, insignias de nivel y rango, BirdFrame, avisos
       shared_features/          lo que usan varias pantallas
         biomes/                 Biome (dominio) + catálogo de imágenes
         pet_food/               Food (dominio) + catálogo de iconos
-        pet_species/            especies, catálogo de sprites, BirdFrame
+        pet_species/            especies, catálogo de sprites
         pet_skills/             habilidades, rasgos, progresión (XP y niveles)
         pet_combat/             stats de combate calculados desde las necesidades
         pet_status/             partida, necesidades, cría, rareza, economía,
                                 repositorio y PetController
       features/                 las pantallas
-        pet/                    pantalla de la mascota (escena del bioma + paneles)
+        biome/                  pantalla del bioma (escena con todas sus mascotas + paneles)
+        care/                   modo cuidado: una mascota de cerca (reutiliza la escena
+                                del bioma, ampliada); en el reloj es la única pantalla
         defense/                modo defensa (reglas, mapa, bucle, renderizado); los mapas
                                 se generan con tools/defense_maps (ver mapas-de-defensa.md)
     composeResources/
       drawable/                 sprites, fondos, iconos (PNG)
       files/sounds/             música (OGG)
   androidMain/                  MainActivity, AndroidManifest, implementaciones Android
+  androidNormal/ androidWatch/  manifiesto propio de cada flavor (móvil / reloj)
   desktopMain/                  main.kt, implementaciones de escritorio
   commonTest/ desktopTest/      tests
 
@@ -110,8 +141,16 @@ Entre funcionalidades, las dependencias también van en un solo sentido:
 ```
 biomes, pet_food  ◄──  pet_species  ◄──  pet_skills  ◄──  pet_status  ◄──  pet_combat
                                                                   ▲
-                                         features/pet, features/defense (usan todas)
+                                  design_system (componentes compartidos; usa core y shared_features)
+                                                                  ▲
+                                  features/biome, features/care, features/defense (usan todas)
 ```
+
+- **Todo componente de interfaz que use más de una pantalla va en
+  `design_system/components/`** (paquete `com.petbattle.design_system.components`); lo que
+  solo usa una pantalla se queda en su `features/<pantalla>/presentation/widgets`. Los colores,
+  el estilo de texto y los iconos están en `design_system/GameUi.kt`.
+- `design_system` nunca importa nada de `features`.
 
 - `shared_features` y `core` nunca importan nada de `features`.
 - `core` no conoce el juego: no importa nada de `features` ni de `shared_features`.
@@ -137,12 +176,14 @@ repository  = LocalPetRepository(store)
 controller  = PetController(repository, SystemClock, scope)
 music       = MusicController(MusicPlayer de la plataforma, store, scope)
 controller.load(); music.load()
-App(controller, music)
+App(controller, music, variant)   // variant: AppVariant.normal o .watch
 ```
 
-`App()` aplica el tema Material 3 y decide qué pantalla se ve (`PetScreen` o
-`DefenseScreen`) con un simple `enum` y `mutableStateOf`: no hay librería de navegación.
-También elige la música de cada pantalla.
+`App()` aplica el tema Material 3 y decide qué pantalla se ve (`BiomeScreen`, `CareScreen`
+o `DefenseScreen`) con un simple `enum` y `mutableStateOf`: no hay librería de navegación.
+También elige la música de cada pantalla. Con `AppVariant.watch` arranca en `CareScreen` y
+no ofrece salir de ella; en escritorio la variante sale de `-Pwatch` (propiedad
+`petbattle.variant`).
 
 ## 5. Estado y flujo de datos
 
@@ -208,7 +249,8 @@ No se usa un motor de juego. Las dos escenas siguen el mismo patrón:
 
 | Escena | Simulación | Dibujo |
 |---|---|---|
-| Bioma (`features/pet/presentation/game/BiomeScene.kt`) | Estado interno de la escena: las mascotas andan, vuelan, comen y duermen; comida en el suelo | Fondo por capas (cielo que se desplaza + paisaje), mascotas, filtro de color según el momento del día (`DayLight.kt`) |
+| Bioma (`features/biome/presentation/game/BiomeScene.kt`) | Estado interno de la escena: las mascotas andan, vuelan, comen y duermen; comida en el suelo | Fondo por capas (cielo que se desplaza + paisaje), mascotas, filtro de color según el momento del día (`DayLight.kt`) |
+| Cuidado (`features/care/presentation/CareScreen.kt`) | La misma `BiomeScene` con una sola mascota, la zona de paseo recortada a lo visible, un rango de profundidad (`depthRange`) cercano, un techo de vuelo (`flightCeiling`) bajo el HUD y sin nombres (`showNames = false`) | La escena ampliada con `graphicsLayer` (escala desde el centro de abajo); los toques se transforman solos a coordenadas de la escena |
 | Defensa (`features/defense/presentation/game/DefenseGame.kt`) | `DefenseGame.update(dt)`: aparición de enemigos, movimiento por rutas (`RoutePath`), disparos, habilidades | `DefenseRenderer.kt`. El HUD es Compose normal, encima del `Canvas`, alimentado con `DefenseHudState` |
 
 **Shader de viento.** La hierba y los árboles del bioma se mecen con un shader escrito una
@@ -228,6 +270,7 @@ Lo que cambia por plataforma se resuelve de dos maneras:
   | `localUtcOffsetMillis()` (`core/time/DayCycle.kt`) | `TimeZone` de Java | igual |
   | `PlatformBackHandler` (`core/ui/Platform.kt`) | Botón/gesto de atrás | No hace nada |
   | `Modifier.hiddenPointer` (`core/ui/Platform.kt`) | No hace nada | Oculta el ratón |
+  | `isRoundScreen()` (`core/ui/Platform.kt`) | `Configuration.isScreenRound` | Siempre `false` |
   | `createWindPainter` (`core/ui/WindShader.kt`) | AGSL (`RuntimeShader`) | SkSL (Skia `RuntimeEffect`) |
 
 - **Interfaces + implementación inyectada en el arranque**, para piezas con estado:
@@ -306,7 +349,8 @@ Ejecuta `commonTest` y `desktopTest` en la JVM.
   `InMemoryKeyValueStore`, con `kotlinx-coroutines-test`).
 - **`desktopTest`**: comprobaciones de recursos (que las *spritesheets* y las pistas de
   música existen y tienen el formato esperado) y **tests visuales** que renderizan el modo
-  defensa y el viento de la pradera fuera de pantalla.
+  defensa, el viento de la pradera y el modo cuidado (móvil y reloj, con la esfera redonda
+  marcada) fuera de pantalla, en `build/visual/`.
 
 ## 12. Convenciones
 

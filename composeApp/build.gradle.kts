@@ -60,11 +60,38 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // Dos compilaciones de la app Android: "normal" (móvil y tableta, con todas las pantallas) y
+    // "watch" (reloj Wear OS, solo el modo cuidado). Cada una añade su propio manifiesto
+    // (src/androidNormal y src/androidWatch) y le dice al código común qué variante es con
+    // BuildConfig.APP_VARIANT (ver core/config/AppVariant.kt).
+    flavorDimensions += "device"
+    productFlavors {
+        create("normal") {
+            dimension = "device"
+            buildConfigField("String", "APP_VARIANT", "\"normal\"")
+        }
+        create("watch") {
+            dimension = "device"
+            // Mismo minSdk que el móvil: también va en relojes con Android normal (no Wear OS),
+            // como el SaveWatch 2 (Android 8.1, API 27).
+            buildConfigField("String", "APP_VARIANT", "\"watch\"")
+        }
+    }
+    // Con Kotlin Multiplatform, AGP no fusiona por sí solo los manifiestos de los flavors
+    // (comprobado: sin esto el APK sale sin ellos); se indican a mano.
+    sourceSets["normal"].manifest.srcFile("src/androidNormal/AndroidManifest.xml")
+    sourceSets["watch"].manifest.srcFile("src/androidWatch/AndroidManifest.xml")
 }
 
 compose.desktop {
     application {
         mainClass = "com.petbattle.MainKt"
+        // `./gradlew :composeApp:run -Pwatch` arranca como el reloj (solo modo cuidado, ventana pequeña).
+        if (project.hasProperty("watch")) jvmArgs += "-Dpetbattle.variant=watch"
         nativeDistributions {
             targetFormats(TargetFormat.Deb)
             packageName = "pet-battle"

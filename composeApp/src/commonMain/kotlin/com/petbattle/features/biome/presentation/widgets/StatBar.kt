@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.features.biome.presentation.widgets
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState

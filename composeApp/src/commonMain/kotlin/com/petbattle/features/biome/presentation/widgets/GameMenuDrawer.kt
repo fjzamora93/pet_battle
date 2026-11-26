@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.features.biome.presentation.widgets
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -36,12 +36,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.GameIconImage
-import com.petbattle.core.ui.GameUi
-import com.petbattle.core.ui.WoodButton
-import com.petbattle.core.ui.WoodIconButton
-import com.petbattle.core.ui.WoodPanel
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.GameUi
+import com.petbattle.design_system.components.GameIconImage
+import com.petbattle.design_system.components.WoodButton
+import com.petbattle.design_system.components.WoodIconButton
+import com.petbattle.design_system.components.WoodPanel
 import com.petbattle.shared_features.biomes.domain.Biome
 import com.petbattle.shared_features.biomes.presentation.label
 import com.petbattle.shared_features.pet_status.domain.GameRules

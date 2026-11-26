@@ -42,14 +42,20 @@ class PetNeedsRulesTest {
         assertEquals(t0 - 3_600_000, r.lastUpdatedAt)
     }
 
-    @Test fun sleepingPetIsRestedInTenSecondsAndWakesUp() {
+    @Test fun sleepingPetIsRestedInTenSecondsAndKeepsSleepingUntilWoken() {
         var s = needs(sleeping = true).copy(energy = 0.0)
         for (sec in 1..9) s = PetNeedsRules.advanceTo(s, t0 + sec * second)
         assertTrue(s.isSleeping)
         close(90.0, s.energy)
         s = PetNeedsRules.advanceTo(s, t0 + 10 * second)
         assertEquals(PetNeedsBalance.MAX_STAT, s.energy)
-        assertFalse(s.isSleeping)
+        // Ya descansada del todo, sigue dormida (también mucho después) hasta que la despiertan.
+        s = PetNeedsRules.advanceTo(s, t0 + 3_600 * second)
+        assertTrue(s.isSleeping)
+        assertEquals(PetNeedsBalance.MAX_STAT, s.energy)
+        assertFalse(PetNeedsRules.wake(s).isSleeping)
+        val awake = needs()
+        assertEquals(awake, PetNeedsRules.wake(awake))
     }
 
     @Test fun oneOfflineJumpMatchesManyLiveTicks() {

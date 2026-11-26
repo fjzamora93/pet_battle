@@ -1,6 +1,7 @@
 package com.petbattle
 
 import com.petbattle.shared_features.pet_species.domain.PetSpecies
+import com.petbattle.shared_features.pet_species.presentation.BirdLayout
 import com.petbattle.shared_features.pet_species.presentation.BirdSheet
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
@@ -49,6 +50,23 @@ class BirdSheetsTest {
                 assertTrue(sheet.hasDrawing(col, row), "$species: frame $frame de la animación $animation vacío")
             }
             assertEquals((lastRow + 1) * BirdSheet.FRAME_SIZE, sheet.height, "$species: alto de la hoja")
+        }
+    }
+
+    @Test
+    fun careBirdSheetHasEveryDeclaredFrame() {
+        // La hoja del modo cuidado (BirdLayout.care): mismas filas, sus propios frames.
+        val layout = BirdLayout.care
+        val sheet = Bitmap.makeFromImage(Image.makeFromEncoded(File(res, "pet_care_bird_1.png").readBytes()))
+        assertEquals(BirdSheet.columns(layout) * BirdSheet.FRAME_SIZE, sheet.width, "ancho de la hoja")
+        assertEquals(BirdSheet.ROWS * BirdSheet.FRAME_SIZE, sheet.height, "alto de la hoja")
+        assertTrue(!BirdSheet.hasTransitions(layout))
+        for (row in 0 until BirdSheet.ROWS) {
+            val n = BirdSheet.frames(row, layout)
+            assertTrue(n > 0, "fila $row sin frames")
+            for (col in 0 until BirdSheet.columns(layout)) {
+                assertEquals(col < n, sheet.hasDrawing(col, row), "fila $row, columna $col")
+            }
         }
     }
 

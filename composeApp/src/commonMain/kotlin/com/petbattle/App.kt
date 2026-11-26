@@ -13,12 +13,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import com.petbattle.core.audio.MusicController
 import com.petbattle.core.audio.MusicTrack
-import com.petbattle.core.ui.OptionsDialog
+import com.petbattle.core.config.AppVariant
+import com.petbattle.design_system.components.OptionsDialog
+import com.petbattle.features.biome.presentation.BiomeScreen
+import com.petbattle.features.care.presentation.CareScreen
 import com.petbattle.features.defense.presentation.DefenseScreen
-import com.petbattle.features.pet.presentation.PetScreen
 import com.petbattle.shared_features.pet_status.application.PetController
 
-private enum class Screen { Pet, Defense }
+private enum class Screen { Biome, Care, Defense }
 
 private val AppColors = lightColorScheme(
     primary = Color(0xFF1F6B4F),
@@ -28,10 +30,14 @@ private val AppColors = lightColorScheme(
     surface = Color(0xFFF5FBF6),
 )
 
-/** Raíz: la pantalla de mascota y, encima, el modo defensa. Cada una con su música en bucle. */
+/**
+ * Raíz: decide qué pantalla se ve (bioma, cuidado o defensa), cada una con su música en bucle.
+ * En la variante [AppVariant.watch] solo existe el modo cuidado: es la pantalla de entrada y
+ * no se puede salir de él.
+ */
 @Composable
-fun App(controller: PetController, music: MusicController) {
-    var screen by remember { mutableStateOf(Screen.Pet) }
+fun App(controller: PetController, music: MusicController, variant: AppVariant = AppVariant.normal) {
+    var screen by remember { mutableStateOf(if (variant == AppVariant.watch) Screen.Care else Screen.Biome) }
     var optionsOpen by remember { mutableStateOf(false) }
     val soundEnabled by music.soundEnabled.collectAsState()
 
@@ -42,8 +48,18 @@ fun App(controller: PetController, music: MusicController) {
     MaterialTheme(colorScheme = AppColors) {
         Surface {
             when (screen) {
-                Screen.Pet -> PetScreen(controller, onDefend = { screen = Screen.Defense }, onOptions = { optionsOpen = true })
-                Screen.Defense -> DefenseScreen(controller, onExit = { screen = Screen.Pet })
+                Screen.Biome -> BiomeScreen(
+                    controller,
+                    onDefend = { screen = Screen.Defense },
+                    onCare = { screen = Screen.Care },
+                    onOptions = { optionsOpen = true },
+                )
+                Screen.Care -> CareScreen(
+                    controller,
+                    onBiome = if (variant.canLeaveCare) ({ screen = Screen.Biome }) else null,
+                    onOptions = { optionsOpen = true },
+                )
+                Screen.Defense -> DefenseScreen(controller, onExit = { screen = Screen.Biome })
             }
             if (optionsOpen) {
                 OptionsDialog(soundEnabled, music::setSoundEnabled, onDismiss = { optionsOpen = false })

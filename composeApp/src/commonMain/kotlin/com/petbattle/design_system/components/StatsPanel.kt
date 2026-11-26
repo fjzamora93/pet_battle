@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.design_system.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -33,14 +33,11 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.petbattle.core.ui.GameBar
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.GameIconImage
-import com.petbattle.core.ui.GameUi
-import com.petbattle.core.ui.WoodButton
-import com.petbattle.core.ui.WoodPanel
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.GameUi
 import com.petbattle.shared_features.pet_combat.domain.PetCombatBalance
 import com.petbattle.shared_features.pet_combat.domain.PetCombatStats
 import com.petbattle.shared_features.pet_combat.domain.PetCombatStatsRules
@@ -60,8 +57,12 @@ private enum class StatsTab { needs, combat }
  * - Necesidades: hambre, descanso, diversión y digestión; "Salud" (higiene, plumaje, pico y
  *   garras) y "Ambientales" (social y clima, que no dependen de la interacción).
  * - Combate: daño, velocidad y confianza, cada uno "actual / total", y el rango (fijo por especie).
- * El botón "i" explica la pestaña abierta, y abajo está el botón de liberarla. Hace scroll si
- * no cabe. [socialization] y [combat] se calculan fuera (dependen del bioma).
+ * El botón "i" explica la pestaña abierta, y abajo está el botón de liberarla (solo si hay
+ * [onRelease]: el modo cuidado no lo ofrece). Hace scroll si no cabe. [socialization] y
+ * [combat] se calculan fuera (dependen del bioma).
+ *
+ * Con [arrowButtonSize], plegado es solo un botón redondo con la flecha, de ese tamaño (el
+ * modo cuidado); desplegado es el panel de siempre.
  */
 @Composable
 fun StatsPanel(
@@ -70,12 +71,17 @@ fun StatsPanel(
     /** Satisfacción global (0..100): media de todas sus necesidades (PetDerivedNeeds.satisfaction). */
     satisfaction: Double,
     combat: PetCombatStats,
-    onRelease: () -> Unit,
+    onRelease: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    arrowButtonSize: Dp? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(StatsTab.needs) }
     var showInfo by remember { mutableStateOf(false) }
+    if (arrowButtonSize != null && !expanded) {
+        WoodIconButton(GameIcon.ArrowDown, "Ver estados", { expanded = true }, modifier, size = arrowButtonSize)
+        return
+    }
     val arrow by animateFloatAsState(if (expanded) 180f else 0f)
     // Plegado solo se ve la cabecera (más estrecha); desplegado, todo.
     WoodPanel(modifier.width(if (expanded) 250.dp else 170.dp)) {
@@ -146,8 +152,10 @@ fun StatsPanel(
                         if (combat.exhausted) Text("¡Agotado! Necesita descansar", style = GameUi.text(12.sp, Color(0xFFFFB4A8)))
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                WoodButton("Liberar", onRelease, Modifier.fillMaxWidth(), icon = GameIcon.Release)
+                if (onRelease != null) {
+                    Spacer(Modifier.height(8.dp))
+                    WoodButton("Liberar", onRelease, Modifier.fillMaxWidth(), icon = GameIcon.Release)
+                }
             }
         }
     }

@@ -1,13 +1,13 @@
 # Reglas de cuidado de la mascota
 
 Este documento recoge las reglas de **cuidado** de la mascota (necesidades, cría, rareza,
-tienda y ciclo del día) **tal y como están implementadas** en el código. Cada vez que cambie
+tienda, modo cuidado y ciclo del día) **tal y como están implementadas** en el código. Cada vez que cambie
 una regla o un valor de balance, hay que actualizarlo aquí (ver CLAUDE.md). Las reglas del
 combate están en [reglas-de-combate.md](reglas-de-combate.md). Lo que comparten los dos
 sistemas (cómo los cuidados afectan a los stats de combate y cómo el combate desgasta las
 necesidades) está en ambos documentos.
 
-Última actualización: 2026-11-25.
+Última actualización: 2026-11-26.
 
 Fuentes en el código:
 - Necesidades de la mascota: `shared_features/pet_status/domain/PetNeedsBalance.kt`,
@@ -65,8 +65,11 @@ Las **ambientales** no dependen de la interacción del jugador y no se guardan.
 - **Limpiar**: con el agua en la mano se toca la mascota que se quiere limpiar (cualquiera del
   bioma, no solo la seleccionada). Mejora a la vez higiene, plumaje y pico y garras; se puede si
   a cualquiera de las tres le falta algo.
-- **Dormida** no come, no se limpia ni se deja mimar, y se despierta sola con el descanso
-  lleno. De noche descansa pero sigue despierta (se puede interactuar).
+- **Dormida** no come, no se limpia ni se deja mimar. **No se despierta sola**: sigue dormida
+  aunque ya tenga el descanso lleno, hasta que se la despierta con el botón o se elige otra
+  acción con ella (alimentar, limpiar o, en el bioma, defender), que la despierta
+  automáticamente. Es igual en el bioma y en el modo cuidado. De noche descansa pero sigue
+  despierta (se puede interactuar).
 
 ### En el panel de la mascota
 Plegado solo muestra su nombre. Al desplegarlo aparece su especie y todo lo demás: la
@@ -173,7 +176,35 @@ ve (con sus estrellas) en su ficha. **De momento no tiene efecto en el juego.**
   los que tienen fondo por capas. Los demás salen como "Próximamente": no se pueden comprar ni
   visitar. Las mascotas de partidas antiguas que vivían en otro bioma se mudan a la pradera.
 
-## 6. Ciclo del día (hora local)
+## 6. Modo cuidado (una sola mascota, de cerca)
+
+Además del **bioma** (todas las mascotas del bioma a la vez) hay un **modo cuidado**, al
+estilo tamagotchi: la mascota seleccionada sola, más grande, sobre una ampliación del fondo
+de su bioma (×1,8; ×2,2 en el reloj). Se dibuja **siempre con el mismo pájaro** (el pájaro azul
+de `pet_care_bird_1.png`, a tamaño de adulto), sea cual sea su especie; sus necesidades y stats
+siguen siendo los de la mascota.
+
+- **Cómo se entra**: desde el bioma, con el botón "Cuidar" (encima del menú de juego, solo si
+  hay una mascota seleccionada). En la app de **reloj** es la pantalla de entrada y la única.
+- **Movimiento restringido**: la mascota solo se posa y vuela por la parte del suelo que se ve
+  y cerca del frente (profundidad 0–0,45; en el reloj 0,45–0,85, para que la fila de botones
+  no le tape las patas). La comida se deja dentro de ese mismo margen. Al volar tiene un
+  **techo**: nunca sube por encima de la fila de arriba (engranaje y estados), pensado sobre
+  todo para la pantalla cuadrada del reloj. No se dibuja su nombre encima: ya sale en el panel.
+- **Acciones**: alimentar, limpiar y dormir/despertar funcionan igual que en el bioma (la
+  comida y el agua se llevan en la mano; tocar a la mascota la mima). El cuarto botón,
+  **"Bioma"**, vuelve al bioma; en el reloj no aparece.
+- **Lo que no hay**: ni huevos, ni cambio de bioma, ni defensa, ni el botón de liberar del
+  panel. Sí está el **panel desplegable de estados** (plegado es solo un botón con una flecha,
+  del tamaño del engranaje) y el **engranaje** de opciones (sonido). Los botones son más grandes
+  que en el bioma.
+- **Sin mascota** (partida nueva o tras liberarla): en el móvil se invita a volver al bioma; en
+  el reloj, como no hay bioma al que ir, se puede comprar un huevo desde ahí mismo (el primero
+  es gratis).
+
+Las reglas de necesidades, cría, rareza y economía son las mismas en los dos modos.
+
+## 7. Ciclo del día (hora local)
 
 Cuatro franjas de 6 horas. Cada una cambia el aspecto del **cielo** con un filtro (una matriz
 de color y un degradado); el fondo, el suelo y los pájaros conservan siempre sus colores. El
@@ -187,12 +218,13 @@ cambio entre franjas es gradual.
 | Tarde | 18:00–24:00 | Cielo de atardecer anaranjado | Activas |
 
 Dormir a una mascota a mano solo cambia su animación (y la hace descansar); dormida no come,
-no se limpia ni se deja mimar, y se despierta sola con el descanso lleno.
+no se limpia ni se deja mimar, y no se despierta sola (ni siquiera con el descanso lleno): solo
+al despertarla o al elegir otra acción con ella.
 
 Con la app cerrada, al volver se simula lo ocurrido minuto a minuto (sabiendo qué horas
 fueron de noche), con un máximo de 7 días.
 
-## 7. Interferencias conocidas (pendientes de equilibrar)
+## 8. Interferencias conocidas (pendientes de equilibrar)
 
 1. Como todas viven a la vez, cuantas más mascotas, más trabajo de cuidado: una mascota
    olvidada en otro bioma sigue pasando hambre.

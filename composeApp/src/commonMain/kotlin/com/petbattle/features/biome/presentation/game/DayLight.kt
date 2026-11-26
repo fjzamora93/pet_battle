@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.game
+package com.petbattle.features.biome.presentation.game
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size

@@ -56,6 +56,39 @@ sin saltos.
   rellenado con copias del más parecido (ver `OLD_TO_NEW` en `build_grid.py`). Hay que
   sustituirlos cuando exista su arte nuevo.
 
+## Pájaro del modo cuidado (`pet_care_bird_1.png`)
+
+En el modo cuidado se ve **siempre el mismo pájaro** (un pájaro azul), sea cual sea la especie
+de la mascota. Su hoja sigue la rejilla de 8 × 6 casillas de 256 px y las mismas filas, pero con
+sus propios frames (`BirdLayout.care` en `PetSpeciesCatalog.kt`, objeto `CareBird`):
+
+| Fila | Animación | Frames | Del original |
+|---|---|---|---|
+| 0 | Volar | 8 | fila 0 |
+| 1 | Reposo | 6 | fila 1 |
+| 2 | Andar / saltar | 8 | fila 4 (saltitos) |
+| 3 | Reacción al mimo | 6 | fila 2 (estira las alas), dura 0,9 s |
+| 4 | Descansar | 3 | fila 3, frames 0-2 (sentado, despierto) |
+| 5 | Dormir | 5 | fila 3, frames 3-7 (ojos cerrados) |
+
+No tiene despegue ni aterrizaje, y se dibuja a tamaño de adulto aunque la mascota sea un
+polluelo. La fila 5 del original (mirar alrededor) aún no se usa.
+
+El original (`tools/bird_sprites/care/pet_care_bird_1_source.png`, 8 × 6 casillas de 192 px
+sobre fondo gris opaco) se convierte con:
+
+```bash
+/usr/bin/python3 tools/bird_sprites/care_sheet.py \
+    tools/bird_sprites/care/pet_care_bird_1_source.png \
+    composeApp/src/commonMain/composeResources/drawable/pet_care_bird_1.png
+```
+
+El script quita el fondo gris y las sombras del suelo (lo gris unido al borde de cada casilla;
+el blanco y el negro de los ojos se conservan), le quita el halo gris al borde de las plumas y
+coloca cada animación con los pies en la línea del suelo, como en las demás hojas. Solo necesita
+Pillow y numpy. `BirdSheetsTest` comprueba que la hoja tiene dibujo justo en los frames que
+declara `BirdLayout.care`.
+
 ## Herramientas (`tools/bird_sprites/`)
 
 ```bash

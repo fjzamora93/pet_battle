@@ -6,6 +6,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.petbattle.core.audio.DesktopMusicPlayer
 import com.petbattle.core.audio.MusicController
+import com.petbattle.core.config.AppVariant
 import com.petbattle.core.time.SystemClock
 import com.petbattle.shared_features.pet_status.application.PetController
 import com.petbattle.shared_features.pet_status.data.LocalPetRepository
@@ -23,6 +24,9 @@ fun main() {
     val music = MusicController(DesktopMusicPlayer(), store, scope)
     scope.launch { controller.load() }
     scope.launch { music.load() }
+    // Con -Pwatch (ver build.gradle.kts) se simula el reloj: solo modo cuidado, ventana cuadrada.
+    val variant = AppVariant.parse(System.getProperty("petbattle.variant"))
+    val windowSize = if (variant == AppVariant.watch) 240.dp to 240.dp else 1280.dp to 720.dp
 
     application {
         Window(
@@ -33,9 +37,9 @@ fun main() {
                 exitApplication()
             },
             title = "Pet Battle",
-            state = rememberWindowState(width = 1280.dp, height = 720.dp),
+            state = rememberWindowState(width = windowSize.first, height = windowSize.second),
         ) {
-            App(controller, music)
+            App(controller, music, variant)
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.design_system.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -6,13 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,11 +30,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.petbattle.core.ui.GameBar
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.GameIconImage
-import com.petbattle.core.ui.GameUi
-import com.petbattle.core.ui.WoodPanel
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.GameUi
 import com.petbattle.shared_features.biomes.presentation.label
 import com.petbattle.shared_features.pet_food.presentation.label
 import com.petbattle.shared_features.pet_skills.domain.PetElement

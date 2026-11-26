@@ -1,4 +1,4 @@
-package com.petbattle.core.ui
+package com.petbattle.design_system.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -7,10 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.petbattle.design_system.GameUi
 
 /** Botón redondo de madera con el engranaje que abre las opciones. */
 @Composable
@@ -55,15 +57,16 @@ fun OptionsButton(onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp =
 fun OptionsDialog(soundEnabled: Boolean, onSoundEnabled: (Boolean) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         WoodPanel {
-            Column(Modifier.padding(20.dp).width(280.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.padding(20.dp).widthIn(max = 280.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Opciones", style = GameUi.text(24.sp))
                 Spacer(Modifier.height(16.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.clickable { onSoundEnabled(!soundEnabled) },
+                    // Se estrecha en pantallas pequeñas (reloj) en vez de recortar el interruptor.
+                    modifier = Modifier.fillMaxWidth().clickable { onSoundEnabled(!soundEnabled) },
                 ) {
-                    Text("Sonido", style = GameUi.text(18.sp), modifier = Modifier.width(200.dp))
+                    Text("Sonido", style = GameUi.text(18.sp), modifier = Modifier.weight(1f))
                     Switch(
                         checked = soundEnabled,
                         onCheckedChange = onSoundEnabled,

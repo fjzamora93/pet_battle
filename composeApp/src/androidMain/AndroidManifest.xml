@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Manifiesto común a los dos flavors. Lo propio de cada dispositivo (orientación en el
+         móvil, declaración de reloj en Wear OS) va en src/androidNormal y src/androidWatch. -->
     <application
         android:label="Pet Battle"
         android:icon="@mipmap/ic_launcher"
@@ -7,7 +9,6 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="sensorLandscape"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>

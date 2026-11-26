@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.features.biome.presentation.widgets
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,9 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.WoodIconButton
-import com.petbattle.features.pet.presentation.game.HandTool
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.components.WoodIconButton
+import com.petbattle.features.biome.presentation.game.HandTool
 import com.petbattle.shared_features.pet_food.presentation.icon
 import com.petbattle.shared_features.pet_status.domain.entities.PetEntity
 

@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.game
+package com.petbattle.features.biome.presentation.game
 
 import com.petbattle.shared_features.pet_food.domain.Food
 

@@ -8,6 +8,10 @@ para comandos de compilación y reglas del juego.
 - **Todos los comentarios del código deben ir en español** (`//`, `/* */`, KDoc `/** */`,
   `#` en ficheros de configuración y `<!-- -->` en XML). Los identificadores (clases,
   funciones, variables) se mantienen en inglés.
+- **Componentes compartidos**: todo componente de interfaz que use más de una pantalla va en
+  `composeApp/src/commonMain/kotlin/com/petbattle/design_system/components/`. Lo que solo usa
+  una pantalla se queda en `features/<pantalla>/presentation/widgets`; si pasa a usarlo otra,
+  se mueve a `design_system/components`. Colores, estilo de texto e iconos: `design_system/GameUi.kt`.
 
 ## Documentación
 

@@ -67,8 +67,9 @@ object PetNeedsRules {
             digestion = clamp(pet.digestion - PetNeedsBalance.DIGESTION_DECAY_PER_HOUR * k),
             beakAndClaws = clamp(pet.beakAndClaws - PetNeedsBalance.BEAK_DECAY_PER_HOUR * k),
         )
-        // Las mascotas dormidas y ya descansadas se despiertan solas (también sin conexión).
-        return if (pet.isSleeping && next.energy >= PetNeedsBalance.MAX_STAT) next.copy(isSleeping = false) else next
+        // Dormida sigue dormida aunque ya haya descansado del todo: solo se despierta a mano
+        // (botón de despertar o al elegir otra acción, ver [wake]).
+        return next
     }
 
     // Acciones del jugador. `canX` permite a la UI deshabilitar botones; `x` no hace nada
@@ -104,6 +105,9 @@ object PetNeedsRules {
     }
 
     fun toggleSleep(pet: PetNeedsEntity) = pet.copy(isSleeping = !pet.isSleeping)
+
+    /** La despierta (si dormía): pasa al elegir cualquier otra acción con ella. */
+    fun wake(pet: PetNeedsEntity) = if (pet.isSleeping) pet.copy(isSleeping = false) else pet
 
     /** Se puede limpiar despierta si a alguna de sus necesidades de salud le falta algo. */
     fun canClean(pet: PetNeedsEntity) = !pet.isSleeping &&

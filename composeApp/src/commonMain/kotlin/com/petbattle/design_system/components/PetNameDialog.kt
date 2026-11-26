@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.design_system.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,9 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.petbattle.shared_features.biomes.domain.Biome
 import com.petbattle.shared_features.biomes.presentation.label
 import com.petbattle.shared_features.pet_species.domain.PetSpecies
-import com.petbattle.shared_features.pet_species.presentation.widgets.BirdFrame
-import com.petbattle.shared_features.pet_status.domain.PetNameError
 import com.petbattle.shared_features.pet_status.domain.GameRules
+import com.petbattle.shared_features.pet_status.domain.PetNameError
 
 /**
  * Pide el nombre de un polluelo nuevo en [biome]. Una mascota no se puede guardar sin él, así

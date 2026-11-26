@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.game
+package com.petbattle.features.biome.presentation.game
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,12 +23,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
@@ -45,27 +45,28 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.petbattle.core.time.DayPhase
-import com.petbattle.resources.pet_egg
-import com.petbattle.resources.Res
 import com.petbattle.core.time.systemNowMillis
-import com.petbattle.core.ui.GameIcon
 import com.petbattle.core.ui.WindPainter
-import com.petbattle.core.ui.hiddenPointer
 import com.petbattle.core.ui.createWindPainter
 import com.petbattle.core.ui.drawSpriteFrame
+import com.petbattle.core.ui.hiddenPointer
+import com.petbattle.design_system.GameIcon
+import com.petbattle.resources.Res
+import com.petbattle.resources.pet_egg
 import com.petbattle.shared_features.biomes.domain.Biome
 import com.petbattle.shared_features.biomes.presentation.background
 import com.petbattle.shared_features.biomes.presentation.backgroundLayers
 import com.petbattle.shared_features.pet_food.domain.Food
 import com.petbattle.shared_features.pet_food.presentation.icon
-import com.petbattle.shared_features.pet_status.domain.GameRules
 import com.petbattle.shared_features.pet_species.domain.PetSpecies
+import com.petbattle.shared_features.pet_species.presentation.BirdLayout
 import com.petbattle.shared_features.pet_species.presentation.BirdSheet
+import com.petbattle.shared_features.pet_species.presentation.layout
 import com.petbattle.shared_features.pet_species.presentation.sheet
 import com.petbattle.shared_features.pet_species.presentation.spriteScale
+import com.petbattle.shared_features.pet_status.domain.GameRules
 import com.petbattle.shared_features.pet_status.domain.entities.PetEntity
 import com.petbattle.shared_features.pet_status.domain.wellbeing
-import org.jetbrains.compose.resources.imageResource
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -75,6 +76,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
 import kotlin.random.Random
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.imageResource
 
 /** Altura (fracción del lienzo) del suelo más cercano, donde se posan los pájaros de delante. */
 private const val FRONT_GROUND = 0.965f
@@ -104,7 +107,14 @@ private const val DEPTH_GAP = 0.35
  * atardecer sutil; de noche la pantalla se oscurece y todas descansan (pose de dormir, sin
  * volar), aunque se puede seguir tocándolas. Fuera de la noche solo descansa la que se haya
  * acostado, sin cambiar la pantalla.
- * [walkStartInset] y [walkEndInset] dejan libre a cada lado el espacio que ocupen los botones.
+ * [walkStartInset] y [walkEndInset] dejan libre a cada lado el espacio que ocupen los botones,
+ * y [depthRange] limita a qué profundidades (0 = delante, 1 = al fondo) se posan, vuelan y se
+ * deja la comida (el modo cuidado la mantiene cerca para verla grande). Si [flightCeiling] es
+ * mayor que 0, al volar ninguna sube (con su nombre) por encima de esa distancia desde arriba
+ * del lienzo: el modo cuidado lo usa para que no se salga de lo visible ni pase bajo el HUD.
+ * Con [showNames] a false no se dibuja el nombre sobre cada mascota. Con [birdOverride] todas
+ * se dibujan con esa hoja (y su disposición), sea cual sea su especie, y a tamaño de adulto: el
+ * modo cuidado muestra siempre el mismo pájaro.
  *
  * Con una herramienta en la mano ([handTool]) el cursor se convierte en ella y los toques
  * cambian: con agua, tocar una mascota la limpia ([onPetCleaned]); con comida, tocar el suelo
@@ -122,6 +132,10 @@ fun BiomeScene(
     dayPhase: DayPhase = DayPhase.morning,
     walkStartInset: Dp = 0.dp,
     walkEndInset: Dp = 0.dp,
+    depthRange: ClosedFloatingPointRange<Double> = 0.0..1.0,
+    flightCeiling: Dp = 0.dp,
+    showNames: Boolean = true,
+    birdOverride: Pair<DrawableResource, BirdLayout>? = null,
     handTool: HandTool? = null,
     groundFood: List<GroundFood> = emptyList(),
     wantsFood: (PetEntity, Food) -> Boolean = { _, _ -> false },
@@ -140,10 +154,14 @@ fun BiomeScene(
         BackdropLayers(imageResource(it.sky), imageResource(it.back), terrain, solid, wind, filter, it.groundEdge)
     }
     val sheets = PetSpecies.entries.associateWith { imageResource(it.sheet) }
+    val overrideSheet = birdOverride?.let { imageResource(it.first) }
     val eggImage = imageResource(Res.drawable.pet_egg)
     val foodImages = Food.entries.associateWith { imageResource(it.icon.res) }
     val waterImage = imageResource(GameIcon.Wash.res)
     val state = remember(biome) { BiomeSceneState() }
+    state.depthRange = depthRange
+    state.showNames = showNames
+    state.layoutOverride = birdOverride?.second
     val currentPets by rememberUpdatedState(pets)
     val currentActive by rememberUpdatedState(activeId)
     val currentPhase by rememberUpdatedState(dayPhase)
@@ -221,6 +239,8 @@ fun BiomeScene(
             drawBiomeBackdrop(backdrop, state.look)
         }
         val ground = layers?.terrain ?: backdrop
+        // El techo (con el hueco del nombre, si se dibuja) en píxeles de este lienzo.
+        state.ceilingPx = if (flightCeiling > 0.dp) (flightCeiling + if (showNames) NAME_ROOM else 0.dp).toPx() else 0f
         state.layout(
             size, walkStartInset.toPx(), walkEndInset.toPx(),
             terrainSolid = layers?.terrainSolid ?: FALLBACK_TERRAIN_SOLID,
@@ -245,7 +265,7 @@ fun BiomeScene(
             val actor = state.actors[pet.id] ?: continue
             drawFoodsBehind(actor.depth)
             if (pet.isEgg) drawEgg(state, actor, pet, eggImage, now)
-            else drawActor(state, actor, pet, sheets.getValue(pet.species))
+            else drawActor(state, actor, pet, overrideSheet ?: sheets.getValue(pet.species))
             // La hierba que nace por delante de ella la tapa (y deja ver entre las briznas).
             if (wind != null && crop != null) drawGrassInFront(wind, crop, state.time, actor)
         }
@@ -256,7 +276,7 @@ fun BiomeScene(
             drawHearts(actor)
             drawZzz(textMeasurer, state, actor)
             val label = if (pet.isEgg) "Huevo · ${timeLeft(pet.hatchesAt!! - now)}" else pet.name
-            drawName(textMeasurer, actor, label, active = pet.id == activeId)
+            if (showNames) drawName(textMeasurer, actor, label, active = pet.id == activeId)
         }
         // La herramienta en la mano, donde esté el puntero (con el dedo, algo por encima para verla).
         val tool = handTool
@@ -385,6 +405,46 @@ private class BiomeSceneState {
      */
     fun scaleAt(depth: Double) = (1f - (frontY - backY) * depth.toFloat() / canvasHeight * PERSPECTIVE).coerceAtLeast(0.6f)
 
+    /** Profundidades permitidas (ver BiomeScene). */
+    var depthRange: ClosedFloatingPointRange<Double> = 0.0..1.0
+
+    /** Si se dibuja el nombre sobre cada mascota (ver BiomeScene). */
+    var showNames = true
+
+    /** Disposición de la hoja con la que se dibujan todas, si no es la de su especie (ver BiomeScene). */
+    var layoutOverride: BirdLayout? = null
+
+    /** Disposición de la hoja con la que se dibuja [pet]. */
+    fun layoutOf(pet: PetEntity): BirdLayout = layoutOverride ?: pet.species.layout
+
+    /** Techo en píxeles del lienzo (0 = sin techo); lo fija el dibujo en cada frame. */
+    var ceilingPx = 0f
+
+    /**
+     * Profundidad máxima (dentro de [depthRange]) a la que una mascota posada en [x] queda
+     * entera por debajo del techo: en pantallas altas el suelo del fondo sube tanto que, posada
+     * al fondo, ya pasaría bajo el HUD. Sin [x], la peor x de la zona de paseo.
+     */
+    private fun maxDepthUnderCeiling(x: Double? = null): Double {
+        val end = depthRange.endInclusive
+        if (ceilingPx <= 0f || canvasHeight <= 1f) return end
+        val xs = x?.let { listOf(it) } ?: (0..10).map { it / 10.0 }
+        var d = end
+        // De atrás adelante, hasta que la cabeza quede por debajo del techo.
+        while (d > depthRange.start) {
+            val top = xs.minOf { groundYAt(d, it) } - slotSide * scaleAt(d)
+            if (top >= ceilingPx) return d
+            d -= 0.01
+        }
+        return depthRange.start
+    }
+
+    /** Profundidad al azar dentro de [depthRange] (y bajo el techo, en la posición [x]). */
+    private fun randomDepth(x: Double? = null): Double {
+        val end = maxDepthUnderCeiling(x)
+        return depthRange.start + Random.nextDouble() * (end - depthRange.start)
+    }
+
     /** Distancia mínima (en fracción de la zona de paseo) entre dos mascotas posadas. */
     var gap = 0.15
 
@@ -453,7 +513,7 @@ private class BiomeSceneState {
         val back = backYAt(pos.x)
         // Por encima del borde del fondo (el cielo) cae al fondo; por debajo del suelo, delante.
         val depth = if (frontY - back < 1f) 0.0 else ((frontY - pos.y) / (frontY - back)).toDouble().coerceIn(0.0, 1.0)
-        return x to depth
+        return x to depth.coerceIn(depthRange.start, maxDepthUnderCeiling(x))
     }
 
     /** Si es de noche (lo último que dijo la pantalla): descansan todas. */
@@ -483,11 +543,23 @@ private class BiomeSceneState {
         val ids = pets.map { it.id }.toSet()
         actors.keys.retainAll(ids)
         for (pet in pets) if (pet.id !in actors) {
-            val depth = Random.nextDouble()
+            val depth = randomDepth()
             actors[pet.id] = Actor(spawnSpot(depth), depth, Random.nextDouble() * 10)
         }
 
         look = lerp(look, DayLook.of(phase), (dt * 2.5).coerceIn(0.0, 1.0).toFloat())
+
+        // Posadas por encima del techo (aparecieron antes del primer dibujo, o cambió el tamaño
+        // de la pantalla): se adelantan lo justo.
+        if (ceilingPx > 0f) {
+            for (a in actors.values) if (!a.moving && !a.inTransition) {
+                val max = maxDepthUnderCeiling(a.x)
+                if (a.depth > max) {
+                    a.depth = max
+                    a.targetDepth = max
+                }
+            }
+        }
 
         val ease = (dt * 4).coerceIn(0.0, 1.0)
         for (pet in pets) {
@@ -496,16 +568,17 @@ private class BiomeSceneState {
             a.sleepT += ((if (asleep) 1.0 else 0.0) - a.sleepT) * ease
             val targetSat = 0.3 + 0.7 * pet.needs.wellbeing.coerceIn(0.0, 1.0)
             a.saturation += (targetSat - a.saturation) * ease
-            a.transitions = BirdSheet.hasTransitions(pet.species)
+            val layout = layoutOf(pet)
+            a.transitions = BirdSheet.hasTransitions(layout)
             if (a.takeoffT >= 0) {
                 a.takeoffT += dt
                 // Deja el suelo: empieza a desplazarse mientras termina la animación.
-                if (!a.moving && a.takeoffT >= BirdSheet.liftoffSeconds(pet.species)) a.moving = true
-                if (a.takeoffT >= BirdSheet.cycleSeconds(BirdSheet.TAKEOFF, pet.species)) a.takeoffT = -1.0
+                if (!a.moving && a.takeoffT >= BirdSheet.liftoffSeconds(layout)) a.moving = true
+                if (a.takeoffT >= BirdSheet.cycleSeconds(BirdSheet.TAKEOFF, layout)) a.takeoffT = -1.0
             }
             if (a.landT >= 0) {
                 a.landT += dt
-                if (a.landT >= BirdSheet.cycleSeconds(BirdSheet.LANDING, pet.species)) a.landT = -1.0
+                if (a.landT >= BirdSheet.cycleSeconds(BirdSheet.LANDING, layout)) a.landT = -1.0
             }
             // Con aterrizaje propio baja al ras del suelo al final del vuelo: la animación de
             // aterrizar empieza justo en la postura de vuelo y lo posa.
@@ -543,7 +616,7 @@ private class BiomeSceneState {
 
             if (a.reactT >= 0) a.reactT += dt
             // La reacción dura lo que su animación de mirar arriba (depende de la especie).
-            if (a.reactT > BirdSheet.cycleSeconds(BirdSheet.LOOK_UP_ROW, pet.species) || asleep) a.reactT = -1.0
+            if (a.reactT > BirdSheet.cycleSeconds(BirdSheet.LOOK_UP_ROW, layout) || asleep) a.reactT = -1.0
             if (a.bounceT >= 0) a.bounceT += dt
             if (a.bounceT > BOUNCE_DURATION) a.bounceT = -1.0
             a.hearts.forEach { it.age += dt }
@@ -624,7 +697,7 @@ private class BiomeSceneState {
         repeat(5) { if (abs(target - a.x) < gap) target = Random.nextDouble() }
         a.target = target
         // También cambia de profundidad, al ritmo justo para llegar a la vez que en horizontal.
-        a.targetDepth = Random.nextDouble()
+        a.targetDepth = randomDepth(target)
         val flightTime = max(abs(target - a.x) / SPEED, 0.5)
         a.depthSpeed = abs(a.targetDepth - a.depth) / flightTime
         startFlight(a)
@@ -761,13 +834,19 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
     // Los sprites son de alta resolución: se escalan libremente con suavizado.
     // Más lejos (al fondo), más pequeño y más arriba en la pantalla.
     val perspective = state.scaleAt(a.depth)
-    val side = state.slotSide * pet.species.spriteScale * perspective
+    // Con la hoja del modo cuidado, siempre a tamaño de adulto (también los polluelos).
+    val spriteScale = if (state.layoutOverride != null) 1f else pet.species.spriteScale
+    val side = state.slotSide * spriteScale * perspective
     val slotLeft = state.walkLeft + a.x.toFloat() * state.walkWidth
     val left = slotLeft + (state.slotSide - side) / 2
     val groundY = state.groundYAt(a.depth, a.x)
     a.groundY = groundY
     val flap =if (a.lift > 0.01) sin((state.time + a.phase) * 9).toFloat() * side * 0.03f else 0f
-    val liftPx = (a.lift.toFloat() * state.slotSide * perspective * 0.35f) + flap * a.lift.toFloat()
+    var liftPx = (a.lift.toFloat() * state.slotSide * perspective * 0.35f) + flap * a.lift.toFloat()
+    if (state.ceilingPx > 0f) {
+        // Con techo, no sube más allá (el techo ya deja sitio para el nombre, si se dibuja).
+        liftPx = liftPx.coerceAtMost(max(0f, groundY - side - state.ceilingPx))
+    }
     val topY = groundY - side - liftPx
     a.rect = Rect(left, topY, left + side, topY + side)
 
@@ -777,7 +856,7 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
 
     val asleep = state.isResting(pet)
     val t = state.time + a.phase
-    val species = pet.species
+    val layout = state.layoutOf(pet)
     val animation = when {
         // Despegando o aterrizando: su animación de transición, de principio a fin.
         a.takeoffT >= 0 -> BirdSheet.TAKEOFF
@@ -791,12 +870,12 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
         else -> BirdSheet.IDLE_ROW
     }
     val frame = when (animation) {
-        BirdSheet.TAKEOFF -> BirdSheet.onceFrame(animation, species, a.takeoffT)
-        BirdSheet.LANDING -> BirdSheet.onceFrame(animation, species, a.landT)
-        BirdSheet.LOOK_UP_ROW -> BirdSheet.onceFrame(animation, species, a.reactT)
-        else -> BirdSheet.loopFrame(animation, species, t)
+        BirdSheet.TAKEOFF -> BirdSheet.onceFrame(animation, layout, a.takeoffT)
+        BirdSheet.LANDING -> BirdSheet.onceFrame(animation, layout, a.landT)
+        BirdSheet.LOOK_UP_ROW -> BirdSheet.onceFrame(animation, layout, a.reactT)
+        else -> BirdSheet.loopFrame(animation, layout, t)
     }
-    val (col, row) = BirdSheet.cell(animation, frame, species)
+    val (col, row) = BirdSheet.cell(animation, frame, layout)
 
     // Respiración idle: más lenta y profunda mientras duerme (no mientras despega o se posa).
     val speed = 2.2 - a.sleepT * 1.2
@@ -906,6 +985,9 @@ private fun DrawScope.drawZzz(textMeasurer: TextMeasurer, state: BiomeSceneState
 }
 
 /** Nombre sobre cada mascota; el de la activa, resaltado y con una flecha. */
+/** Lo que ocupa el nombre (y la flecha de la activa) por encima del frame de la mascota. */
+private val NAME_ROOM = 34.dp
+
 private fun DrawScope.drawName(textMeasurer: TextMeasurer, a: Actor, name: String, active: Boolean) {
     val style = TextStyle(
         color = if (active) Color(0xFFFFE066) else Color.White,

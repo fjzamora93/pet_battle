@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import com.petbattle.resources.Res
 import com.petbattle.resources.pet_bee_eater
 import com.petbattle.resources.pet_blue_jay
+import com.petbattle.resources.pet_care_bird_1
 import com.petbattle.resources.pet_cardinal
 import com.petbattle.resources.pet_cedar_waxwing
 import com.petbattle.resources.pet_chucao
@@ -21,6 +22,36 @@ import com.petbattle.shared_features.pet_species.domain.PetSpecies
 import org.jetbrains.compose.resources.DrawableResource
 import kotlin.math.floor
 import kotlin.math.min
+
+/**
+ * Cómo está organizada una hoja de pájaro: cuántas columnas tiene, cuántos frames hay en cada
+ * animación y si trae despegue y aterrizaje. Las filas son siempre las mismas (ver [BirdSheet]).
+ */
+enum class BirdLayout {
+    /** Rejilla de 8 columnas: 8 frames de vuelo, 6 de reposo y de andar, 4 en el resto. */
+    classic,
+
+    /** Hoja ampliada del arrendajo: 16 columnas, con despegue y aterrizaje. */
+    extended,
+
+    /**
+     * El pájaro del modo cuidado ([CareBird]): 8 frames de vuelo, 6 de reposo, 8 de saltar, 6 de
+     * reacción al mimo (estira las alas), 3 de descansar sentado y 5 de dormir.
+     */
+    care,
+}
+
+/** Disposición de la hoja de cada especie. */
+val PetSpecies.layout: BirdLayout get() = if (this == PetSpecies.blueJay) BirdLayout.extended else BirdLayout.classic
+
+/**
+ * El pájaro que se ve siempre en el modo cuidado, sea cual sea la especie de la mascota. Se monta
+ * con tools/bird_sprites/care_sheet.py (ver docs/sprites-de-pajaros.md).
+ */
+object CareBird {
+    val sheet: DrawableResource = Res.drawable.pet_care_bird_1
+    val layout = BirdLayout.care
+}
 
 /** Disposición común a todos los spritesheets de pájaros: una animación por fila, frames de 256x256. */
 object BirdSheet {
@@ -65,71 +96,95 @@ object BirdSheet {
     /** Frame del despegue en que el pájaro deja el suelo: desde ahí ya se desplaza. */
     const val LIFTOFF_FRAME = 16
 
-    /** Si [species] tiene despegue y aterrizaje propios (si no, despega y se posa sin más). */
-    fun hasTransitions(species: PetSpecies) = species == PetSpecies.blueJay
+    // Cada función tiene dos versiones: por disposición de hoja ([BirdLayout]) y, por comodidad,
+    // por especie (con la disposición de su hoja).
 
-    /** Columnas de la hoja de [species]. */
-    fun columns(species: PetSpecies) = if (species == PetSpecies.blueJay) 16 else COLUMNS
+    /** Si la hoja tiene despegue y aterrizaje propios (si no, despega y se posa sin más). */
+    fun hasTransitions(layout: BirdLayout) = layout == BirdLayout.extended
+    fun hasTransitions(species: PetSpecies) = hasTransitions(species.layout)
 
-    /** Número de frames de la animación [row] (fila normal o transición) de [species]. */
-    fun frames(row: Int, species: PetSpecies): Int = when (species) {
+    /** Columnas de la hoja. */
+    fun columns(layout: BirdLayout) = if (layout == BirdLayout.extended) 16 else COLUMNS
+    fun columns(species: PetSpecies) = columns(species.layout)
+
+    /** Número de frames de la animación [row] (fila normal o transición). */
+    fun frames(row: Int, layout: BirdLayout): Int = when (layout) {
         // Hoja ampliada (tools/bird_sprites/arrendajo): 12 frames de vuelo, 16 en las demás
         // filas y 31 en cada transición.
-        PetSpecies.blueJay -> when (row) {
+        BirdLayout.extended -> when (row) {
             FLY_ROW -> 12
             TAKEOFF, LANDING -> 31
             else -> 16
         }
-        else -> when (row) {
+        // Pájaro del modo cuidado (tools/bird_sprites/care_sheet.py).
+        BirdLayout.care -> when (row) {
+            FLY_ROW, HOP_ROW -> 8
+            IDLE_ROW, LOOK_UP_ROW -> 6
+            REST_ROW -> 3
+            SLEEP_ROW -> 5
+            else -> 0
+        }
+        BirdLayout.classic -> when (row) {
             FLY_ROW -> 8
             IDLE_ROW, HOP_ROW -> 6
             TAKEOFF, LANDING -> 0
             else -> 4
         }
     }
+    fun frames(row: Int, species: PetSpecies): Int = frames(row, species.layout)
 
     /**
      * Casilla (columna, fila) de la hoja del frame [frame] de la animación [row]: en las filas
      * normales, (frame, row); las transiciones siguen en la fila de abajo al llegar al final.
      */
-    fun cell(row: Int, frame: Int, species: PetSpecies): Pair<Int, Int> {
+    fun cell(row: Int, frame: Int, layout: BirdLayout): Pair<Int, Int> {
         if (row < ROWS) return frame to row
-        val cols = columns(species)
+        val cols = columns(layout)
         var base = ROWS
-        for (r in TAKEOFF until row) base += (frames(r, species) + cols - 1) / cols
+        for (r in TAKEOFF until row) base += (frames(r, layout) + cols - 1) / cols
         return frame % cols to base + frame / cols
     }
+    fun cell(row: Int, frame: Int, species: PetSpecies) = cell(row, frame, species.layout)
 
     /**
      * Segundos que dura un ciclo de la animación de la fila [row]. En bucle es igual para todas
      * las especies: con más frames, cada uno dura menos y el movimiento es más fluido. Mirar
      * arriba (la reacción al tocarla, de una sola vez) dura más en el arrendajo, cuya animación
-     * sube la cabeza y la vuelve a bajar; las demás acaban mirando arriba.
+     * sube la cabeza y la vuelve a bajar, y en el pájaro del modo cuidado, que estira las alas;
+     * las demás acaban mirando arriba.
      */
-    fun cycleSeconds(row: Int, species: PetSpecies): Double = when (row) {
+    fun cycleSeconds(row: Int, layout: BirdLayout): Double = when (row) {
         FLY_ROW -> 0.48
         IDLE_ROW, HOP_ROW -> 1.8
-        LOOK_UP_ROW -> if (species == PetSpecies.blueJay) 1.2 else 0.4
+        LOOK_UP_ROW -> when (layout) {
+            BirdLayout.extended -> 1.2
+            BirdLayout.care -> 0.9
+            BirdLayout.classic -> 0.4
+        }
         REST_ROW -> 2.8
         TAKEOFF, LANDING -> 1.2
         else -> 3.6 // dormir
     }
+    fun cycleSeconds(row: Int, species: PetSpecies) = cycleSeconds(row, species.layout)
 
     /** Segundos desde que empieza a despegar hasta que deja el suelo ([LIFTOFF_FRAME]). */
-    fun liftoffSeconds(species: PetSpecies) =
-        cycleSeconds(TAKEOFF, species) * LIFTOFF_FRAME / frames(TAKEOFF, species).coerceAtLeast(1)
+    fun liftoffSeconds(layout: BirdLayout) =
+        cycleSeconds(TAKEOFF, layout) * LIFTOFF_FRAME / frames(TAKEOFF, layout).coerceAtLeast(1)
+    fun liftoffSeconds(species: PetSpecies) = liftoffSeconds(species.layout)
 
-    /** Frame de la animación en bucle de la fila [row] de [species] en el instante [time] (s). */
-    fun loopFrame(row: Int, species: PetSpecies, time: Double): Int {
-        val n = frames(row, species)
-        return floor(time / cycleSeconds(row, species) * n).toInt().mod(n)
+    /** Frame de la animación en bucle de la fila [row] en el instante [time] (s). */
+    fun loopFrame(row: Int, layout: BirdLayout, time: Double): Int {
+        val n = frames(row, layout)
+        return floor(time / cycleSeconds(row, layout) * n).toInt().mod(n)
     }
+    fun loopFrame(row: Int, species: PetSpecies, time: Double) = loopFrame(row, species.layout, time)
 
     /** Frame de una animación de una sola vez (mirar arriba) tras [elapsed] s: se queda en el último. */
-    fun onceFrame(row: Int, species: PetSpecies, elapsed: Double): Int {
-        val n = frames(row, species)
-        return min(n - 1, floor(elapsed / cycleSeconds(row, species) * n).toInt()).coerceAtLeast(0)
+    fun onceFrame(row: Int, layout: BirdLayout, elapsed: Double): Int {
+        val n = frames(row, layout)
+        return min(n - 1, floor(elapsed / cycleSeconds(row, layout) * n).toInt()).coerceAtLeast(0)
     }
+    fun onceFrame(row: Int, species: PetSpecies, elapsed: Double) = onceFrame(row, species.layout, elapsed)
 }
 
 /** Datos de presentación de cada especie: nombre visible y spritesheet. */

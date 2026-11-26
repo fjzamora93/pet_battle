@@ -21,3 +21,6 @@ private val emptyPointer by lazy {
 }
 
 actual fun Modifier.hiddenPointer(hidden: Boolean): Modifier = if (hidden) pointerHoverIcon(emptyPointer) else this
+
+@Composable
+actual fun isRoundScreen(): Boolean = false

@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation.widgets
+package com.petbattle.features.biome.presentation.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,9 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.GameIconImage
-import com.petbattle.core.ui.GameUi
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.GameUi
+import com.petbattle.design_system.components.GameIconImage
 
 /**
  * Monedas de oro (arriba a la izquierda): la moneda solapa una barra oscura con la cantidad y

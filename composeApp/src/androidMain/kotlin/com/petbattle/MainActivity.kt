@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.petbattle.core.audio.AndroidMusicPlayer
 import com.petbattle.core.audio.MusicController
+import com.petbattle.core.config.AppVariant
 import com.petbattle.core.time.SystemClock
 import com.petbattle.shared_features.pet_status.application.PetController
 import com.petbattle.shared_features.pet_status.data.LocalPetRepository
@@ -24,7 +25,9 @@ class MainActivity : ComponentActivity() {
         music = MusicController(AndroidMusicPlayer(applicationContext), store, lifecycleScope)
         lifecycleScope.launch { controller.load() }
         lifecycleScope.launch { music.load() }
-        setContent { App(controller, music) }
+        // El flavor (normal o watch) decide qué pantallas hay.
+        val variant = AppVariant.parse(BuildConfig.APP_VARIANT)
+        setContent { App(controller, music, variant) }
     }
 
     override fun onPause() {

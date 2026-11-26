@@ -1,6 +1,6 @@
 package com.petbattle.shared_features.pet_food.presentation
 
-import com.petbattle.core.ui.GameIcon
+import com.petbattle.design_system.GameIcon
 import com.petbattle.shared_features.pet_food.domain.Food
 
 /** Datos de presentación de cada comida: nombre visible e icono. */

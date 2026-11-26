@@ -22,11 +22,16 @@ Requisitos: JDK 17 y, para Android, el Android SDK (`local.properties` con `sdk.
 # Paquete .deb para Ubuntu
 ./gradlew :composeApp:packageDeb
 
-# Android (APK de depuración)
-./gradlew :composeApp:assembleDebug
-# -> composeApp/build/outputs/apk/debug/composeApp-debug.apk
+# Android: móvil/tableta (flavor normal) y reloj Wear OS (flavor watch)
+./gradlew :composeApp:assembleNormalDebug
+# -> composeApp/build/outputs/apk/normal/debug/composeApp-normal-debug.apk
+./gradlew :composeApp:assembleWatchDebug
+# -> composeApp/build/outputs/apk/watch/debug/composeApp-watch-debug.apk
 
-# Tests (dominio + prueba visual que renderiza el modo defensa fuera de pantalla)
+# Escritorio simulando el reloj (ventana pequeña, solo modo cuidado)
+./gradlew :composeApp:run -Pwatch
+
+# Tests (dominio + pruebas visuales que renderizan defensa y cuidado fuera de pantalla)
 ./gradlew :composeApp:desktopTest
 ```
 
@@ -54,6 +59,9 @@ La partida se guarda sola: en Android en SharedPreferences y en escritorio en
   `docs/reglas-de-cuidado.md`).
 - **Cuidados**: aliméntala (eligiendo la comida: los adultos rechazan lo que no es de su
   dieta), límpiala, mándala a dormir y tócala para subir su diversión.
+- **Modo cuidado**: el botón "Cuidar" del bioma muestra a la mascota seleccionada sola y de
+  cerca (fondo ampliado, se mueve poco), con solo alimentar, limpiar, dormir y volver al
+  bioma. En la app de **reloj** es la única pantalla: no hay bioma ni defensa.
 - **Defender**: coloca en la hierba tus mascotas adultas, de cualquier bioma (los polluelos no luchan). Los enemigos
   avanzan por el camino y aceleran cada 10 s; suben de nivel cada 20 s.
 - **Progresión**: 1 XP por enemigo derrotado; pasar del nivel n al n+1 cuesta
@@ -73,18 +81,22 @@ La partida se guarda sola: en Android en SharedPreferences y en escritorio en
 composeApp/src/
   commonMain/kotlin/com/petbattle/
     core/                      reloj, almacenamiento, utilidades de dibujo
+    design_system/             estilo común (GameUi) y components/: los componentes
+                               compartidos entre pantallas
     shared_features/
-      pet_species/             especie, catálogo de sprites, BirdFrame
+      pet_species/             especie, catálogo de sprites
       pet_skills/              domain/entities (PetSkillsEntity, PetSkillEntity,
                                SkillEffectEntity), rasgos, progresión, catálogo
       pet_status/              domain/entities (PetEntity, PetStatusEntity,
                                GameStateEntity), reglas, efectos de combate,
                                repositorio y controlador (StateFlow)
     features/
-      pet/                     pantalla de la mascota (escena en Canvas + UI)
+      biome/                   pantalla del bioma (escena en Canvas + UI)
+      care/                    modo cuidado: una mascota de cerca (única pantalla del reloj)
       defense/                 domain/entities (EnemyEntity, DefenseMapEntity),
                                reglas de combate, motor del juego y renderizado
-  androidMain/                 MainActivity, SharedPreferences, orientación
+  androidMain/                 MainActivity, SharedPreferences
+  androidNormal/ androidWatch/ manifiesto de cada flavor (móvil en horizontal / Wear OS)
   desktopMain/                 ventana, almacenamiento en fichero
   commonTest/ desktopTest/     tests
 ```

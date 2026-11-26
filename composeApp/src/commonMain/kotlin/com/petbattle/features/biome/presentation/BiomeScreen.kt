@@ -1,4 +1,4 @@
-package com.petbattle.features.pet.presentation
+package com.petbattle.features.biome.presentation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,9 +21,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,41 +34,42 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.petbattle.core.time.DayPhase
 import com.petbattle.core.time.systemNowMillis
-import com.petbattle.core.ui.GameIcon
-import com.petbattle.core.ui.GameIconImage
-import com.petbattle.core.ui.GameUi
-import com.petbattle.core.ui.OptionsButton
 import com.petbattle.core.ui.PlatformBackHandler
-import com.petbattle.core.ui.WoodButton
-import com.petbattle.core.ui.WoodIconButton
-import com.petbattle.core.ui.WoodPanel
-import com.petbattle.features.pet.presentation.game.BiomeScene
-import com.petbattle.features.pet.presentation.game.GroundFood
-import com.petbattle.features.pet.presentation.game.HandTool
-import com.petbattle.features.pet.presentation.widgets.ActionBar
-import com.petbattle.features.pet.presentation.widgets.ActionBarWidth
-import com.petbattle.features.pet.presentation.widgets.CoinCounter
-import com.petbattle.features.pet.presentation.widgets.FoodPickerSheet
-import com.petbattle.features.pet.presentation.widgets.GameMenuDrawer
-import com.petbattle.features.pet.presentation.widgets.LevelBadge
-import com.petbattle.features.pet.presentation.widgets.MenuTab
-import com.petbattle.features.pet.presentation.widgets.PetNameDialog
-import com.petbattle.features.pet.presentation.widgets.StatsPanel
+import com.petbattle.design_system.GameIcon
+import com.petbattle.design_system.GameUi
+import com.petbattle.design_system.components.FeedbackBubble
+import com.petbattle.design_system.components.FoodPickerSheet
+import com.petbattle.design_system.components.GameIconImage
+import com.petbattle.design_system.components.LevelBadge
+import com.petbattle.design_system.components.OptionsButton
+import com.petbattle.design_system.components.PetNameDialog
+import com.petbattle.design_system.components.StatsPanel
+import com.petbattle.design_system.components.WoodButton
+import com.petbattle.design_system.components.WoodIconButton
+import com.petbattle.design_system.components.WoodPanel
+import com.petbattle.features.biome.presentation.game.BiomeScene
+import com.petbattle.features.biome.presentation.game.GroundFood
+import com.petbattle.features.biome.presentation.game.HandTool
+import com.petbattle.features.biome.presentation.widgets.ActionBar
+import com.petbattle.features.biome.presentation.widgets.ActionBarWidth
+import com.petbattle.features.biome.presentation.widgets.CoinCounter
+import com.petbattle.features.biome.presentation.widgets.GameMenuDrawer
+import com.petbattle.features.biome.presentation.widgets.MenuTab
 import com.petbattle.shared_features.biomes.domain.isPlayable
 import com.petbattle.shared_features.biomes.presentation.label
 import com.petbattle.shared_features.pet_combat.domain.PetCombatStatsRules
-import com.petbattle.shared_features.pet_food.presentation.label
-import com.petbattle.shared_features.pet_species.presentation.label
 import com.petbattle.shared_features.pet_status.application.PetController
-import com.petbattle.shared_features.pet_status.domain.FeedResult
 import com.petbattle.shared_features.pet_status.domain.GameRules
-import com.petbattle.shared_features.pet_status.domain.LifeEvent
 import com.petbattle.shared_features.pet_status.domain.PetDerivedNeeds
 import com.petbattle.shared_features.pet_status.domain.entities.PetEntity
 import kotlinx.coroutines.delay
 
 /** Lo que ocupa el botón del menú de juego (la escena deja ese hueco libre a la derecha). */
 private val MenuButtonSize = 68.dp
+
+/** Botón "Cuidar", encima del menú de juego (y separación entre ambos). */
+private val CareButtonSize = 56.dp
+private val CareButtonGap = 8.dp
 
 /**
  * Pantalla principal. El jugador empieza en la pradera y compra huevos y biomas con el oro de
@@ -80,12 +81,13 @@ private val MenuButtonSize = 68.dp
  * - arriba a la derecha, sus estados (desplegable, con scroll);
  * - abajo a la izquierda, la columna de acciones (comida y agua se llevan en la mano y se usan
  *   tocando la escena: el agua limpia a la mascota tocada y la comida se deja en el suelo);
- * - abajo a la derecha, el botón del menú de juego (cajón con "Huevos" y "Biomas").
+ * - abajo a la derecha, el botón del menú de juego (cajón con "Huevos" y "Biomas") y, encima,
+ *   "Cuidar", que abre el modo cuidado con la mascota seleccionada.
  *
  * El único lugar donde se encuentran el controlador y la escena.
  */
 @Composable
-fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> Unit) {
+fun BiomeScreen(controller: PetController, onDefend: () -> Unit, onCare: () -> Unit, onOptions: () -> Unit) {
     val gameState by controller.gameState.collectAsState()
     val dayPhase by controller.dayPhase.collectAsState()
     var menuOpen by remember { mutableStateOf(false) }
@@ -100,12 +102,7 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
 
     // Huevos puestos y eclosiones: se cuentan con el mismo aviso.
     LaunchedEffect(controller) {
-        controller.events.collect { event ->
-            feedback = when (event) {
-                is LifeEvent.EggLaid -> "¡${event.parents.first} y ${event.parents.second} han puesto un huevo!"
-                is LifeEvent.Hatched -> "¡Ha nacido ${event.name}!"
-            }
-        }
+        controller.events.collect { event -> feedback = lifeEventMessage(event) }
     }
 
     // El aviso desaparece solo al cabo de un rato.
@@ -178,9 +175,7 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
             wantsFood = GameRules::wantsGroundFood,
             onPetCleaned = { id ->
                 val target = current.byId(id) ?: return@BiomeScene
-                if (!controller.clean(id)) {
-                    feedback = if (target.needs.isSleeping) "${target.name} está durmiendo" else "${target.name} no necesita un baño"
-                }
+                if (!controller.clean(id)) feedback = cleanRefusedMessage(target)
             },
             onFoodDropped = { food, x, depth ->
                 groundFood += GroundFood(nextFoodId++, food, x, depth, systemNowMillis())
@@ -189,16 +184,7 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                 val item = groundFood.firstOrNull { it.id == foodId } ?: return@BiomeScene
                 groundFood.remove(item)
                 val eater = current.byId(petId) ?: return@BiomeScene
-                feedback = when (controller.feedPet(petId, item.food)) {
-                    FeedResult.eaten -> "¡A ${eater.name} le encanta! Ñam ñam"
-                    FeedResult.overate -> "${eater.name} come sin hambre: le sienta mal"
-                    FeedResult.disliked -> "${eater.name} se come ${item.food.label.lowercase()} a disgusto"
-                    FeedResult.grew -> {
-                        val adult = controller.gameState.value?.byId(petId)?.species
-                        "¡${eater.name} ha crecido! Ahora es: ${adult?.label ?: "?"}"
-                    }
-                    null -> null
-                }
+                feedback = feedAndDescribe(controller, eater, item.food)
             },
         )
 
@@ -219,15 +205,18 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                     satisfaction = PetDerivedNeeds.satisfaction(pet, current),
                     combat = PetCombatStatsRules.statsFor(pet, social),
                     onRelease = { confirmRelease = pet },
-                    // Acaba por encima del botón del menú; si no cabe, hace scroll.
-                    modifier = Modifier.align(Alignment.TopEnd).heightIn(max = screenHeight - MenuButtonSize - 40.dp),
+                    // Acaba por encima de los botones de cuidar y del menú; si no cabe, hace scroll.
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .heightIn(max = screenHeight - MenuButtonSize - CareButtonSize - CareButtonGap - 40.dp),
                 )
                 ActionBar(
                     pet = pet,
                     handTool = handTool,
                     // Cada opción suelta lo que hubiera en la mano: solo hay una seleccionada a la vez.
                     // Con comida en la mano, el botón la suelta; si no, abre el menú de comidas.
+                    // Elegir cualquier opción que no sea dormir despierta a la mascota seleccionada.
                     onFeed = {
+                        controller.wake()
                         if (handTool is HandTool.FoodItem) {
                             handTool = null
                         } else {
@@ -239,8 +228,12 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                         handTool = null
                         controller.toggleSleep()
                     },
-                    onClean = { handTool = if (handTool == HandTool.Water) null else HandTool.Water },
+                    onClean = {
+                        controller.wake()
+                        handTool = if (handTool == HandTool.Water) null else HandTool.Water
+                    },
                     onDefend = {
+                        controller.wake()
                         handTool = null
                         onDefend()
                     },
@@ -253,10 +246,20 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
-            WoodIconButton(
-                GameIcon.Menu, "Menú de juego", { openMenu(menuTab) },
-                Modifier.align(Alignment.BottomEnd), size = MenuButtonSize,
-            )
+            Column(Modifier.align(Alignment.BottomEnd), horizontalAlignment = Alignment.CenterHorizontally) {
+                // Modo cuidado: la mascota seleccionada, sola y de cerca.
+                if (pet != null) {
+                    WoodIconButton(
+                        GameIcon.Fun, "Cuidar", {
+                            handTool = null
+                            onCare()
+                        },
+                        size = CareButtonSize,
+                    )
+                    Spacer(Modifier.height(CareButtonGap))
+                }
+                WoodIconButton(GameIcon.Menu, "Menú de juego", { openMenu(menuTab) }, size = MenuButtonSize)
+            }
             feedback?.let { FeedbackBubble(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)) }
         }
 
@@ -313,14 +316,6 @@ fun PetScreen(controller: PetController, onDefend: () -> Unit, onOptions: () -> 
                 dismissButton = { TextButton(onClick = { confirmRelease = null }) { Text("Cancelar") } },
             )
         }
-    }
-}
-
-/** Aviso breve en la parte de abajo (p. ej. si le gustó la comida). */
-@Composable
-private fun FeedbackBubble(text: String, modifier: Modifier = Modifier) {
-    WoodPanel(modifier.padding(horizontal = 90.dp), shape = RoundedCornerShape(50)) {
-        Text(text, style = GameUi.text(15.sp), textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
     }
 }
 
