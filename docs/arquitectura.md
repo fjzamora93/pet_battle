@@ -258,6 +258,10 @@ vez (`WIND_SHADER_SOURCE` en `core/ui/WindShader.kt`). El mismo texto vale como 
 (escritorio, `RuntimeEffect` de Skia) y como **AGSL** (Android 13+, `RuntimeShader`). En
 Android anterior a 13 la imagen se dibuja quieta.
 
+**Rendimiento.** En relojes de gama baja la escena va a saltos; las causas medidas y las
+mejoras propuestas (comunes y exclusivas del reloj) están en
+[mejoras-de-rendimiento.md](mejoras-de-rendimiento.md).
+
 ## 8. Código específico de cada plataforma
 
 Lo que cambia por plataforma se resuelve de dos maneras:
