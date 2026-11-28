@@ -39,10 +39,23 @@ enum class BirdLayout {
      * reacción al mimo (estira las alas), 3 de descansar sentado y 5 de dormir.
      */
     care,
+
+    /**
+     * Petirrojo 3D (tools/bird_sprites/petirrojo): 16 columnas, 12 frames de vuelo y 16 en el
+     * resto, con despegue, aterrizaje y comer (fila [BirdSheet.EAT]). Todas las animaciones
+     * comparten encuadre, y las patas quedan en [BirdSheet.feetLine] (más arriba que en las
+     * demás hojas, para que quepan los dedos al posarse).
+     */
+    robin,
 }
 
 /** Disposición de la hoja de cada especie. */
-val PetSpecies.layout: BirdLayout get() = if (this == PetSpecies.blueJay) BirdLayout.extended else BirdLayout.classic
+val PetSpecies.layout: BirdLayout
+    get() = when (this) {
+        PetSpecies.blueJay -> BirdLayout.extended
+        PetSpecies.redRobin -> BirdLayout.robin
+        else -> BirdLayout.classic
+    }
 
 /**
  * El pájaro que se ve siempre en el modo cuidado, sea cual sea la especie de la mascota. Se monta
@@ -93,19 +106,44 @@ object BirdSheet {
     const val TAKEOFF = 6 // despegar: de pie -> agacharse, abrir alas -> en el aire
     const val LANDING = 7 // aterrizar: en el aire -> posar las patas -> de pie
 
-    /** Frame del despegue en que el pájaro deja el suelo: desde ahí ya se desplaza. */
-    const val LIFTOFF_FRAME = 16
+    /** Comer en el suelo (solo algunas hojas, ver [hasEat]); va detrás de las transiciones. */
+    const val EAT = 8
+
+    /** Línea de las patas (px desde arriba de la casilla) en las hojas normales. */
+    const val FEET_LINE = 252f
 
     // Cada función tiene dos versiones: por disposición de hoja ([BirdLayout]) y, por comodidad,
     // por especie (con la disposición de su hoja).
 
     /** Si la hoja tiene despegue y aterrizaje propios (si no, despega y se posa sin más). */
-    fun hasTransitions(layout: BirdLayout) = layout == BirdLayout.extended
+    fun hasTransitions(layout: BirdLayout) = layout == BirdLayout.extended || layout == BirdLayout.robin
     fun hasTransitions(species: PetSpecies) = hasTransitions(species.layout)
 
+    /** Si la hoja tiene animación de comer (si no, picotea inclinando el sprite). */
+    fun hasEat(layout: BirdLayout) = frames(EAT, layout) > 0
+
     /** Columnas de la hoja. */
-    fun columns(layout: BirdLayout) = if (layout == BirdLayout.extended) 16 else COLUMNS
+    fun columns(layout: BirdLayout) = when (layout) {
+        BirdLayout.extended, BirdLayout.robin -> 16
+        else -> COLUMNS
+    }
     fun columns(species: PetSpecies) = columns(species.layout)
+
+    /**
+     * Línea de las patas en la casilla (px de 256 desde arriba). El petirrojo la tiene más
+     * arriba porque al posarse curva los dedos por debajo de ella (build_grid.py, modo atlas).
+     */
+    fun feetLine(layout: BirdLayout) = if (layout == BirdLayout.robin) 236.3f else FEET_LINE
+
+    /**
+     * Cuánto bajar el sprite (en fracción de su lado) para que sus patas pisen el suelo igual
+     * que las de una hoja normal.
+     */
+    fun groundShift(layout: BirdLayout) = (FEET_LINE - feetLine(layout)) / FRAME_SIZE
+    fun groundShift(species: PetSpecies) = groundShift(species.layout)
+
+    /** Frame del despegue en que el pájaro deja el suelo: desde ahí ya se desplaza. */
+    fun liftoffFrame(layout: BirdLayout) = if (layout == BirdLayout.robin) 8 else 16
 
     /** Número de frames de la animación [row] (fila normal o transición). */
     fun frames(row: Int, layout: BirdLayout): Int = when (layout) {
@@ -114,8 +152,11 @@ object BirdSheet {
         BirdLayout.extended -> when (row) {
             FLY_ROW -> 12
             TAKEOFF, LANDING -> 31
+            EAT -> 0
             else -> 16
         }
+        // Petirrojo 3D: 12 de vuelo y 16 en todo lo demás (también despegue, aterrizaje y comer).
+        BirdLayout.robin -> if (row == FLY_ROW) 12 else 16
         // Pájaro del modo cuidado (tools/bird_sprites/care_sheet.py).
         BirdLayout.care -> when (row) {
             FLY_ROW, HOP_ROW -> 8
@@ -127,9 +168,20 @@ object BirdSheet {
         BirdLayout.classic -> when (row) {
             FLY_ROW -> 8
             IDLE_ROW, HOP_ROW -> 6
-            TAKEOFF, LANDING -> 0
+            TAKEOFF, LANDING, EAT -> 0
             else -> 4
         }
+    }
+
+    /**
+     * Duración de cada frame (s) cuando no son todos iguales; null = iguales (ver
+     * [cycleSeconds]). En el petirrojo, la fase en tierra y la del aire van a ritmos distintos.
+     */
+    fun frameDurations(row: Int, layout: BirdLayout): DoubleArray? = when {
+        layout != BirdLayout.robin -> null
+        row == TAKEOFF -> DoubleArray(16) { if (it < 8) 0.095 else 0.060 }
+        row == LANDING -> DoubleArray(16) { if (it < 8) 0.060 else 0.107 }
+        else -> null
     }
     fun frames(row: Int, species: PetSpecies): Int = frames(row, species.layout)
 
@@ -153,36 +205,67 @@ object BirdSheet {
      * sube la cabeza y la vuelve a bajar, y en el pájaro del modo cuidado, que estira las alas;
      * las demás acaban mirando arriba.
      */
-    fun cycleSeconds(row: Int, layout: BirdLayout): Double = when (row) {
+    fun cycleSeconds(row: Int, layout: BirdLayout): Double = frameDurations(row, layout)?.sum() ?: when {
+        // Petirrojo 3D: las duraciones de sus sprites (tools/bird_sprites/petirrojo/LEEME.md).
+        layout == BirdLayout.robin -> when (row) {
+            FLY_ROW -> 0.556
+            HOP_ROW -> 0.667
+            LOOK_UP_ROW -> 1.067 // salta
+            REST_ROW, SLEEP_ROW -> 2.0
+            else -> 1.0 // reposo (posado) y comer
+        }
+        else -> uniformCycle(row, layout)
+    }
+
+    private fun uniformCycle(row: Int, layout: BirdLayout): Double = when (row) {
         FLY_ROW -> 0.48
         IDLE_ROW, HOP_ROW -> 1.8
         LOOK_UP_ROW -> when (layout) {
             BirdLayout.extended -> 1.2
             BirdLayout.care -> 0.9
-            BirdLayout.classic -> 0.4
+            else -> 0.4
         }
         REST_ROW -> 2.8
         TAKEOFF, LANDING -> 1.2
+        EAT -> 1.0
         else -> 3.6 // dormir
     }
     fun cycleSeconds(row: Int, species: PetSpecies) = cycleSeconds(row, species.layout)
 
-    /** Segundos desde que empieza a despegar hasta que deja el suelo ([LIFTOFF_FRAME]). */
-    fun liftoffSeconds(layout: BirdLayout) =
-        cycleSeconds(TAKEOFF, layout) * LIFTOFF_FRAME / frames(TAKEOFF, layout).coerceAtLeast(1)
+    /** Segundos desde que empieza a despegar hasta que deja el suelo ([liftoffFrame]). */
+    fun liftoffSeconds(layout: BirdLayout): Double {
+        val n = frames(TAKEOFF, layout)
+        if (n == 0) return 0.0
+        val liftoff = liftoffFrame(layout).coerceAtMost(n)
+        return frameDurations(TAKEOFF, layout)?.take(liftoff)?.sum()
+            ?: (cycleSeconds(TAKEOFF, layout) * liftoff / n)
+    }
     fun liftoffSeconds(species: PetSpecies) = liftoffSeconds(species.layout)
+
+    /** Frame en el instante [t] (s) dentro de un ciclo, respetando las duraciones por frame. */
+    private fun frameAt(row: Int, layout: BirdLayout, t: Double): Int {
+        val n = frames(row, layout)
+        val durations = frameDurations(row, layout)
+            ?: return floor(t / cycleSeconds(row, layout) * n).toInt()
+        var acc = 0.0
+        for (i in 0 until n) {
+            acc += durations[i]
+            if (t < acc) return i
+        }
+        return n
+    }
 
     /** Frame de la animación en bucle de la fila [row] en el instante [time] (s). */
     fun loopFrame(row: Int, layout: BirdLayout, time: Double): Int {
         val n = frames(row, layout)
-        return floor(time / cycleSeconds(row, layout) * n).toInt().mod(n)
+        return frameAt(row, layout, time.mod(cycleSeconds(row, layout))).mod(n)
     }
     fun loopFrame(row: Int, species: PetSpecies, time: Double) = loopFrame(row, species.layout, time)
 
     /** Frame de una animación de una sola vez (mirar arriba) tras [elapsed] s: se queda en el último. */
     fun onceFrame(row: Int, layout: BirdLayout, elapsed: Double): Int {
         val n = frames(row, layout)
-        return min(n - 1, floor(elapsed / cycleSeconds(row, layout) * n).toInt()).coerceAtLeast(0)
+        return min(n - 1, frameAt(row, layout, elapsed)).coerceAtLeast(0)
     }
     fun onceFrame(row: Int, species: PetSpecies, elapsed: Double) = onceFrame(row, species.layout, elapsed)
 }

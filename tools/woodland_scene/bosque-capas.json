@@ -1,0 +1,20 @@
+{
+  "ancho_px": 736,
+  "alto_px": 489,
+  "fondo": "bosque-fondo.png",
+  "descripcion": "El fondo conserva toda la fotografía; los recortes de troncos están copiados encima y deben permanecer fijos en su posición. No son capas para parallax.",
+  "troncos": [
+    { "archivo": "tronco-centro.png", "profundidad_y_px": 335 },
+    { "archivo": "tronco-centro-derecha.png", "profundidad_y_px": 357 },
+    { "archivo": "tronco-izquierda-medio.png", "profundidad_y_px": 364 },
+    { "archivo": "tronco-izquierda-cerca.png", "profundidad_y_px": 380 },
+    { "archivo": "tronco-derecha-cerca.png", "profundidad_y_px": 406 }
+  ],
+  "personaje": {
+    "ancla_sprite_px": [112, 196],
+    "limites_pies_y_px": [330, 480],
+    "escala_sprite_en_limite_lejano": 0.22,
+    "escala_sprite_en_limite_cercano": 0.6,
+    "nota": "Las raíces de los troncos dan un orden de profundidad aproximado. Mantener una posición proyectada sobre el suelo separada de la altura de vuelo. La escala se aplica a una celda de 224 x 224."
+  }
+}
