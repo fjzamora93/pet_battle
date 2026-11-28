@@ -2,6 +2,7 @@ package com.petbattle.features.biome.presentation.game
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -102,14 +103,16 @@ fun lerp(a: DayLook, b: DayLook, t: Float) = DayLook(
 
 /**
  * Degradado de cielo (arriba) y, si [ground], de suelo (abajo) de [look], sobre todo el
- * lienzo. Los fondos por capas solo usan el del cielo (el filtro no toca el suelo).
+ * lienzo. Los fondos por capas solo usan el del cielo (el filtro no toca el suelo). Con
+ * [blendMode] SrcAtop cae solo sobre lo ya pintado en la capa (p. ej. un recorte del fondo).
  */
-fun DrawScope.drawDayGradient(look: DayLook, ground: Boolean = true) {
+fun DrawScope.drawDayGradient(look: DayLook, ground: Boolean = true, blendMode: BlendMode = BlendMode.SrcOver) {
     val h = size.height
     if (look.sky.alpha > 0.01f) {
         drawRect(
             Brush.verticalGradient(listOf(look.sky, look.sky.copy(alpha = 0f)), 0f, h * 0.65f),
             size = Size(size.width, h * 0.65f),
+            blendMode = blendMode,
         )
     }
     if (ground && look.ground.alpha > 0.01f) {
@@ -117,6 +120,7 @@ fun DrawScope.drawDayGradient(look: DayLook, ground: Boolean = true) {
             Brush.verticalGradient(listOf(look.ground.copy(alpha = 0f), look.ground), h * 0.45f, h),
             topLeft = Offset(0f, h * 0.45f),
             size = Size(size.width, h * 0.55f),
+            blendMode = blendMode,
         )
     }
 }
