@@ -15,6 +15,11 @@ Uso:
         orden de lectura, mirando a la derecha): CARPETA/vuelo.png, reposo.png, andar.png,
         mirar_arriba.png, descansar.png y dormir.png. Así está hecho el arrendajo
         (tools/bird_sprites/arrendajo -> pet_blue_jay.png, 12 + 5 x 16 frames).
+    python3 tools/bird_sprites/build_grid.py atlas CARPETA SALIDA.png
+        Hoja a partir de sprites 3D con el mismo encuadre en todas las animaciones (rejilla de 4
+        columnas de 224 px, mirando a la derecha; ver ATLAS_ROWS): una sola escala y un solo
+        desplazamiento para todo, sin recolocar frames, así los empalmes ya son continuos. Así
+        está hecho el petirrojo (tools/bird_sprites/petirrojo -> pet_red_robin.png).
     python3 tools/bird_sprites/build_grid.py jay REFERENCIA.jpeg SALIDA.png
         Hoja de 8 columnas a partir de una referencia con el estilo nuevo (una animación por fila).
     python3 tools/bird_sprites/build_grid.py convert HOJA_4x4.png SALIDA.png
@@ -95,7 +100,7 @@ SOURCE_COLUMNS = 4
 # Transiciones opcionales (despegar y aterrizar), detrás de las 6 filas normales. Son largas:
 # cada una ocupa las filas que haga falta, seguidas (el frame i va en la fila base + i // columnas).
 # Para cada una, el primer frame en el aire (despegue) o el primero con las patas en el suelo
-# (aterrizaje), contados en el dibujo. El del despegue es BirdSheet.LIFTOFF_FRAME en el juego
+# (aterrizaje), contados en el dibujo. El del despegue es BirdSheet.liftoffFrame en el juego
 # (desde ese frame el pájaro ya se desplaza): si cambia aquí, hay que cambiarlo allí.
 TRANSITIONS = [("despegue", 16), ("aterrizaje", 4)]
 
@@ -205,6 +210,48 @@ def build_from_frames(folder, out):
     print(f"{out}: {sheet.width}x{sheet.height}, frames por fila {[len(r) for r in rows]}, escala {scale:.3f}")
 
 
+# Modo "atlas": archivo de cada fila de la hoja (las filas 6-8 son despegue, aterrizaje y
+# comer, de una fila cada una con 16 columnas; ver BirdSheet.cell). Dormir se usa también para
+# descansar de noche.
+ATLAS_ROWS = ["vuelo", "posarse-rama", "caminar", "saltar", "dormir", "dormir",
+              "despegar", "aterrizar", "comer"]
+ATLAS_CELL = 224
+# Ancho del pájaro de pie en la hoja (el del petirrojo anterior, para que mida lo mismo).
+ATLAS_STANDING_WIDTH = 182
+
+
+def build_from_atlas(folder, out):
+    rows = [load_frames(os.path.join(folder, f"{name}.png")) for name in ATLAS_ROWS]
+    alphas = [np.asarray(f.split()[3]) > 40 for r in rows for f in r]
+    ys = [np.nonzero(a.any(axis=1))[0] for a in alphas]
+    xs = [np.nonzero(a.any(axis=0))[0] for a in alphas]
+    top, bottom = min(y[0] for y in ys), max(y[-1] + 1 for y in ys)
+    left, right = min(x[0] for x in xs), max(x[-1] + 1 for x in xs)
+    # Línea del suelo del dibujo: la base más común (las patas de pie).
+    bases = [y[-1] + 1 for y in ys]
+    ground = max(set(bases), key=bases.count)
+    idle = rows[IDLE]
+    idle_width = float(np.median([f.getbbox()[2] - f.getbbox()[0] for f in idle]))
+    # Tamaño del petirrojo de siempre, salvo que no quepa todo (alas arriba, dedos abajo).
+    scale = min(ATLAS_STANDING_WIDTH / idle_width, (FRAME - 4) / (bottom - top), (FRAME - 4) / (right - left))
+    # Patas en la línea de siempre si caben los dedos que bajan de ella; si no, algo más arriba.
+    feet_line = min(FEET_Y, FRAME - 2 - (bottom - ground) * scale)
+    dy = feet_line - ground * scale
+    feet = float(np.median([feet_x(f.crop(f.getbbox())) + f.getbbox()[0] for f in idle]))
+    dx = FEET_X - feet * scale
+    dx = min(max(dx, -left * scale + 1), FRAME - 1 - right * scale)
+    columns = max(len(r) for r in rows)
+    sheet = Image.new("RGBA", (FRAME * columns, FRAME * len(rows)), (0, 0, 0, 0))
+    size = round(ATLAS_CELL * scale)
+    for r, frames in enumerate(rows):
+        for c, f in enumerate(frames):
+            f = f.resize((size, size), Image.LANCZOS)
+            sheet.alpha_composite(f, (c * FRAME + round(dx), r * FRAME + round(dy)))
+    sheet.save(out, optimize=True)
+    print(f"{out}: {sheet.width}x{sheet.height}, frames por fila {[len(r) for r in rows]}, "
+          f"escala {scale:.3f}, patas en y={feet_line:.1f} (BirdSheet.feetLine)")
+
+
 # Hoja antigua (4x4): fila -> animación.
 OLD_FLY, OLD_REACT, OLD_IDLE, OLD_HOP = range(4)
 
@@ -234,4 +281,4 @@ def convert(old_path, out):
 
 if __name__ == "__main__":
     mode, src, dst = sys.argv[1:4]
-    {"frames": build_from_frames, "jay": build_jay, "convert": convert}[mode](src, dst)
+    {"frames": build_from_frames, "atlas": build_from_atlas, "jay": build_jay, "convert": convert}[mode](src, dst)

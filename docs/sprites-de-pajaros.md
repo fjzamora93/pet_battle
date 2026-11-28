@@ -34,8 +34,8 @@ Detrás de las 6 filas, una especie puede tener **despegue** (`BirdSheet.TAKEOFF
 **aterrizaje** (`BirdSheet.LANDING`). Son largas: cada una ocupa varias filas seguidas (el frame
 *i* va en la fila base + *i* / columnas, ver `BirdSheet.cell`). En el juego:
 
-- **Despegue**: se agacha y abre las alas sin moverse; desde el frame `LIFTOFF_FRAME` (cuando
-  deja el suelo) ya se desplaza, y al acabar sigue con el aleteo normal.
+- **Despegue**: se agacha y abre las alas sin moverse; desde el frame `BirdSheet.liftoffFrame`
+  (cuando deja el suelo) ya se desplaza, y al acabar sigue con el aleteo normal.
 - **Aterrizaje**: en el último tramo del vuelo baja al ras del suelo; al llegar se posa con la
   animación y no hace nada más (picotear, volver a volar) hasta terminarla.
 
@@ -52,6 +52,20 @@ sin saltos.
   `tools/bird_sprites/arrendajo/` (una imagen transparente por animación, más `despegue.png` y
   `aterrizaje.png`). Su reacción al tocarlo (mirar arriba) dura 1,2 s, porque sube la cabeza y la
   vuelve a bajar.
+- **Petirrojo** (`pet_red_robin.png`): sprites 3D, hoja de **16 columnas × 9 filas** (4096 ×
+  2304, disposición `BirdLayout.robin`). Se monta con el modo `atlas` a partir de
+  `tools/bird_sprites/petirrojo/` (ver su `LEEME.md`): todas las animaciones comparten encuadre,
+  así que se aplican la misma escala y el mismo desplazamiento a todas y los empalmes salen
+  continuos. Particularidades:
+  - Filas: 0 vuelo (12), 1 reposo = posarse en una rama, 2 caminar, 3 reacción al mimo = saltar,
+    4 descansar y 5 dormir = dormir, 6 despegue, 7 aterrizaje y **8 comer** (`BirdSheet.EAT`;
+    con ella come con su animación en vez de picotear inclinando el sprite). 16 frames cada una.
+  - **Duraciones propias** (`BirdSheet.cycleSeconds` / `frameDurations`): las de sus sprites. En
+    el despegue y el aterrizaje los frames en tierra y en el aire duran distinto; deja el suelo
+    en el frame 8.
+  - **Patas más arriba** en la casilla (y = 236 en vez de 252, `BirdSheet.feetLine`), para que
+    quepan los dedos que curva por debajo al posarse; el juego lo baja al dibujarlo
+    (`BirdSheet.groundShift`).
 - **Resto de especies**: estilo antiguo pasado a esta rejilla; los frames que no tenían se han
   rellenado con copias del más parecido (ver `OLD_TO_NEW` en `build_grid.py`). Hay que
   sustituirlos cuando exista su arte nuevo.
