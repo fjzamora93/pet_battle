@@ -208,7 +208,8 @@ private fun DrawScope.drawHandPet(game: DefenseGame, sprites: DefenseSprites) {
     val col = BirdSheet.loopFrame(BirdSheet.IDLE_ROW, pet.species, game.time)
     drawSpriteFrame(
         sprites.pets.getValue(pet.species), BirdSheet.FRAME_SIZE, col, BirdSheet.IDLE_ROW,
-        Offset(feet.x - size / 2, feet.y - size), size, alpha = if (ok) 0.85f else 0.5f,
+        Offset(feet.x - size / 2, feet.y - size * (1 - BirdSheet.groundShift(pet.species))), size,
+        alpha = if (ok) 0.85f else 0.5f,
         filterQuality = BirdSheet.FILTER,
     )
 }
@@ -235,7 +236,8 @@ private fun DrawScope.drawDefender(d: Defender, game: DefenseGame, sprites: Defe
     scale(pop * (1 + 0.08f * squash), pop * (1 - 0.08f * squash), pivot = feet) {
         drawSpriteFrame(
             sprites.pets.getValue(d.pet.species), BirdSheet.FRAME_SIZE, col, BirdSheet.IDLE_ROW,
-            Offset(feet.x - size / 2, feet.y - size), size, flipX = d.facingRight,
+            // Hojas con las patas más arriba en la casilla (petirrojo): se baja para que pisen.
+            Offset(feet.x - size / 2, feet.y - size * (1 - BirdSheet.groundShift(d.pet.species))), size, flipX = d.facingRight,
             alpha = alpha, filterQuality = BirdSheet.FILTER,
         )
     }

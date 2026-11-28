@@ -3,6 +3,7 @@ package com.petbattle
 import com.petbattle.shared_features.pet_species.domain.PetSpecies
 import com.petbattle.shared_features.pet_species.presentation.BirdLayout
 import com.petbattle.shared_features.pet_species.presentation.BirdSheet
+import com.petbattle.shared_features.pet_species.presentation.layout
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
 import java.io.File
@@ -42,7 +43,7 @@ class BirdSheetsTest {
             val columns = BirdSheet.columns(species)
             assertEquals(rows.maxOf { BirdSheet.frames(it, species) }, columns, "$species: columnas")
             assertEquals(columns * BirdSheet.FRAME_SIZE, sheet.width, "$species: ancho de la hoja")
-            val animations = rows + listOf(BirdSheet.TAKEOFF, BirdSheet.LANDING)
+            val animations = rows + listOf(BirdSheet.TAKEOFF, BirdSheet.LANDING, BirdSheet.EAT)
             var lastRow = BirdSheet.ROWS - 1
             for (animation in animations) for (frame in 0 until BirdSheet.frames(animation, species)) {
                 val (col, row) = BirdSheet.cell(animation, frame, species)
@@ -51,6 +52,29 @@ class BirdSheetsTest {
             }
             assertEquals((lastRow + 1) * BirdSheet.FRAME_SIZE, sheet.height, "$species: alto de la hoja")
         }
+    }
+
+    @Test
+    fun robinUsesItsOwnTimingAndRows() {
+        val robin = PetSpecies.redRobin
+        assertTrue(BirdSheet.hasTransitions(robin))
+        assertTrue(BirdSheet.hasEat(robin.layout))
+        // Despegue, aterrizaje y comer: una fila de 16 cada uno, detrás de las 6 normales.
+        assertEquals(0 to 6, BirdSheet.cell(BirdSheet.TAKEOFF, 0, robin))
+        assertEquals(15 to 7, BirdSheet.cell(BirdSheet.LANDING, 15, robin))
+        assertEquals(3 to 8, BirdSheet.cell(BirdSheet.EAT, 3, robin))
+        // Duraciones de sus sprites: despegue 8 x 95 ms en tierra + 8 x 60 en el aire.
+        assertEquals(1.24, BirdSheet.cycleSeconds(BirdSheet.TAKEOFF, robin), 1e-9)
+        assertEquals(1.336, BirdSheet.cycleSeconds(BirdSheet.LANDING, robin), 1e-9)
+        assertEquals(0.76, BirdSheet.liftoffSeconds(robin), 1e-9) // deja el suelo en el frame 8
+        assertEquals(7, BirdSheet.onceFrame(BirdSheet.TAKEOFF, robin, 0.75))
+        assertEquals(8, BirdSheet.onceFrame(BirdSheet.TAKEOFF, robin, 0.77))
+        assertEquals(15, BirdSheet.onceFrame(BirdSheet.LANDING, robin, 9.0))
+        // Bucle de 0,556 s del vuelo: a mitad de ciclo, frame 6 de 12.
+        assertEquals(6, BirdSheet.loopFrame(BirdSheet.FLY_ROW, robin, 0.556 * 2.5 + 1e-6))
+        // Sus patas están más arriba en la casilla: hay que bajarlo un poco.
+        assertTrue(BirdSheet.groundShift(robin) > 0.05f)
+        assertEquals(0f, BirdSheet.groundShift(PetSpecies.cardinal))
     }
 
     @Test

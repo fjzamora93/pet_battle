@@ -847,7 +847,9 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
         // Con techo, no sube más allá (el techo ya deja sitio para el nombre, si se dibuja).
         liftPx = liftPx.coerceAtMost(max(0f, groundY - side - state.ceilingPx))
     }
-    val topY = groundY - side - liftPx
+    val layout = state.layoutOf(pet)
+    // Hojas con las patas más arriba en la casilla (petirrojo): se baja para que pisen el suelo.
+    val topY = groundY - side - liftPx + side * BirdSheet.groundShift(layout)
     a.rect = Rect(left, topY, left + side, topY + side)
 
     // Sombra en el suelo (más pequeña cuanto más alto vuela).
@@ -856,12 +858,15 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
 
     val asleep = state.isResting(pet)
     val t = state.time + a.phase
-    val layout = state.layoutOf(pet)
+    // Comiendo con animación propia (si la hoja la tiene); si no, picotea inclinando el sprite.
+    val eating = a.eatT >= 0 && a.landT < 0
+    val eatAnimation = eating && BirdSheet.hasEat(layout)
     val animation = when {
         // Despegando o aterrizando: su animación de transición, de principio a fin.
         a.takeoffT >= 0 -> BirdSheet.TAKEOFF
         a.landT >= 0 -> BirdSheet.LANDING
         a.lift > 0.05 -> BirdSheet.FLY_ROW
+        eatAnimation -> BirdSheet.EAT
         // Al tocarla, mira arriba (hacia quien la mima).
         a.reactT >= 0 -> BirdSheet.LOOK_UP_ROW
         // Dormida: su animación de dormir, muy lenta. De noche despierta: descansa.
@@ -888,7 +893,7 @@ private fun DrawScope.drawActor(state: BiomeSceneState, a: Actor, pet: PetEntity
     val dirtiness = ((60 - pet.needs.hygiene) / 60).coerceIn(0.0, 1.0)
 
     // Comiendo: picotea inclinándose hacia delante (hacia donde mira) a golpes.
-    val peck = if (a.eatT >= 0 && a.landT < 0) (max(0.0, sin(a.eatT * 2 * kotlin.math.PI * 2.2)) * 28).toFloat() else 0f
+    val peck = if (eating && !eatAnimation) (max(0.0, sin(a.eatT * 2 * kotlin.math.PI * 2.2)) * 28).toFloat() else 0f
     rotate(if (a.facingRight) peck else -peck, pivot) {
     scale(bx * (1 + b), by * (1 - b), pivot) {
         val bounds = Rect(left, topY, left + side, topY + side)
